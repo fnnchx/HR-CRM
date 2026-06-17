@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль пользователя | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+        }
+        .info-row {
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #2e7d32;
+            width: 150px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div id="navbarContainer"></div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Профиль пользователя</h1>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+        
+        <div class="profile-grid">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Личная информация</h2>
+                </div>
+                
+                <form id="profileForm" onsubmit="event.preventDefault(); saveProfile();">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="firstName">Имя</label>
+                            <input type="text" id="firstName" placeholder="Введите имя">
+                        </div>
+                        <div class="form-group">
+                            <label for="lastName">Фамилия</label>
+                            <input type="text" id="lastName" placeholder="Введите фамилию">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="login">Логин</label>
+                        <input type="text" id="login" readonly disabled>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" placeholder="example@mail.by" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phone">Телефон</label>
+                        <input type="tel" id="phone" placeholder="+375 (XX) XXX-XX-XX">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="role">Роль</label>
+                        <input type="text" id="role" readonly disabled>
+                    </div>
+                    
+                    <div class="form-group" id="organizationInfo" style="display: none;">
+                        <label>Организация (магазин)</label>
+                        <input type="text" id="organizationName" readonly disabled>
+                    </div>
+                    
+                    <div class="form-group" id="agencyInfo" style="display: none;">
+                        <label>Кадровое агентство</label>
+                        <input type="text" id="agencyName" readonly disabled>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                </form>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2>Смена пароля</h2>
+                </div>
+                
+                <form id="passwordForm" onsubmit="event.preventDefault(); changePassword();">
+                    <div class="form-group">
+                        <label for="currentPassword">Текущий пароль</label>
+                        <input type="password" id="currentPassword" placeholder="Введите текущий пароль" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newPassword">Новый пароль</label>
+                        <input type="password" id="newPassword" placeholder="Минимум 6 символов" required>
+                        <small class="form-text">Пароль должен быть не менее 6 символов</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirmPassword">Подтверждение пароля</label>
+                        <input type="password" id="confirmPassword" placeholder="Повторите новый пароль" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Изменить пароль</button>
+                </form>
+            </div>
+        </div>
+        
+        <div id="adminPanel" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Управление пользователями</h2>
+                    <button class="btn btn-success btn-sm" onclick="showAddUserForm()">+ Добавить пользователя</button>
+                </div>
+                
+                <div id="addUserForm" style="display: none; margin-bottom: 20px; padding: 1rem; background: #f8f9fa; border-radius: 10px;">
+                    <h3>Добавление пользователя</h3>
+                    <form onsubmit="event.preventDefault(); addUser();">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Логин *</label>
+                                <input type="text" id="newUserLogin" required placeholder="Введите логин">
+                            </div>
+                            <div class="form-group">
+                                <label>Email *</label>
+                                <input type="email" id="newUserEmail" required placeholder="email@example.by">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Имя</label>
+                                <input type="text" id="newUserFirstName" placeholder="Имя">
+                            </div>
+                            <div class="form-group">
+                                <label>Фамилия</label>
+                                <input type="text" id="newUserLastName" placeholder="Фамилия">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Телефон</label>
+                                <input type="text" id="newUserPhone" placeholder="+375XXXXXXXXX">
+                            </div>
+                            <div class="form-group">
+                                <label>Роль</label>
+                                <select id="newUserRole">
+                                    <option value="hr_specialist">Специалист по подбору</option>
+                                    <option value="shop_manager">Заведующий магазином</option>
+                                    <option value="security">Специалист охраны</option>
+                                    <option value="agency">Кадровое агентство</option>
+                                    <option value="admin">Администратор</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row" id="newUserOrgRow" style="display: none;">
+                            <div class="form-group">
+                                <label>Привязка к магазину</label>
+                                <select id="newUserOrganizationId">
+                                    <option value="">Выберите магазин</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row" id="newUserAgencyRow" style="display: none;">
+                            <div class="form-group">
+                                <label>Привязка к агентству</label>
+                                <select id="newUserAgencyId">
+                                    <option value="">Выберите агентство</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Пароль *</label>
+                            <input type="password" id="newUserPassword" required placeholder="Минимум 6 символов">
+                            <small class="form-text">Минимум 6 символов</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="checkbox">
+                                <input type="checkbox" id="newUserActive" checked> Активен
+                            </label>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-success">Сохранить</button>
+                            <button type="button" class="btn btn-secondary" onclick="hideAddUserForm()">Отмена</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="search-box">
+                    <input type="text" id="userSearch" placeholder="Поиск пользователей...">
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Логин</th>
+                                <th>Email</th>
+                                <th>Имя</th>
+                                <th>Телефон</th>
+                                <th>Роль</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersList">
+                            <tr><td colspan="8" class="text-center">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+
+        function getCurrentPage() {
+            const path = window.location.pathname;
+            const page = path.split('/').pop();
+            return page;
+        }
+
+        function loadNavbar() {
+            const role = user.role;
+            const currentPage = getCurrentPage();
+            
+            let menuItems = '';
+            
+            if (role === 'admin') {
+                menuItems = `
+                    <a href="dashboard.html" ${currentPage === 'dashboard.html' ? 'class="active"' : ''}>Главная</a>
+                    <a href="agencies.html" ${currentPage === 'agencies.html' ? 'class="active"' : ''}>Агентства</a>
+                    <a href="contracts.html" ${currentPage === 'contracts.html' ? 'class="active"' : ''}>Договоры</a>
+                    <a href="reports.html" ${currentPage === 'reports.html' ? 'class="active"' : ''}>Отчеты</a>
+                    <a href="profile.html" ${currentPage === 'profile.html' ? 'class="active"' : ''}>Профиль</a>
+                    <a href="#" id="logoutBtn">Выход</a>
+                `;
+            } 
+            else if (role === 'shop_manager') {
+                menuItems = `
+                    <a href="shop_dashboard.html" ${currentPage === 'shop_dashboard.html' ? 'class="active"' : ''}>Главная</a>
+                    <a href="shop_requests.html" ${currentPage === 'shop_requests.html' ? 'class="active"' : ''}>Заявки</a>
+                    <a href="shop_schedule.html" ${currentPage === 'shop_schedule.html' ? 'class="active"' : ''}>График работы</a>
+                    <a href="shop_attendance.html" ${currentPage === 'shop_attendance.html' ? 'class="active"' : ''}>Подтверждение выхода</a>
+                    <a href="shop_reconciliation.html" ${currentPage === 'shop_reconciliation.html' ? 'class="active"' : ''}>Акты сверки</a>
+                    <a href="shop_reports.html" ${currentPage === 'shop_reports.html' ? 'class="active"' : ''}>Отчеты</a>
+                    <a href="profile.html" ${currentPage === 'profile.html' ? 'class="active"' : ''}>Профиль</a>
+                    <a href="#" id="logoutBtn">Выход</a>
+                `;
+            }
+            else if (role === 'security') {
+                menuItems = `
+                    <a href="security_dashboard.html" ${currentPage === 'security_dashboard.html' ? 'class="active"' : ''}>Главная</a>
+                    <a href="security_schedule.html" ${currentPage === 'security_schedule.html' ? 'class="active"' : ''}>График работы</a>
+                    <a href="security_attendance.html" ${currentPage === 'security_attendance.html' ? 'class="active"' : ''}>Отметка прихода/ухода</a>
+                    <a href="security_requests.html" ${currentPage === 'security_requests.html' ? 'class="active"' : ''}>Заявки</a>
+                    <a href="security_reports.html" ${currentPage === 'security_reports.html' ? 'class="active"' : ''}>Отчеты</a>
+                    <a href="profile.html" ${currentPage === 'profile.html' ? 'class="active"' : ''}>Профиль</a>
+                    <a href="#" id="logoutBtn">Выход</a>
+                `;
+            }
+            else if (role === 'hr_specialist') {
+                menuItems = `
+                    <a href="hr_dashboard.html" ${currentPage === 'hr_dashboard.html' ? 'class="active"' : ''}>Главная</a>
+                    <a href="hr_staff.html" ${currentPage === 'hr_staff.html' ? 'class="active"' : ''}>Реестр персонала</a>
+                    <a href="hr_requests.html" ${currentPage === 'hr_requests.html' ? 'class="active"' : ''}>Заявки</a>
+                    <a href="hr_protocols.html" ${currentPage === 'hr_protocols.html' ? 'class="active"' : ''}>Протоколы цен</a>
+                    <a href="profile.html" ${currentPage === 'profile.html' ? 'class="active"' : ''}>Профиль</a>
+                    <a href="#" id="logoutBtn">Выход</a>
+                `;
+            }
+            else if (role === 'agency') {
+                menuItems = `
+                    <a href="agency_dashboard.html" ${currentPage === 'agency_dashboard.html' ? 'class="active"' : ''}>Главная</a>
+                    <a href="agency_requests.html" ${currentPage === 'agency_requests.html' ? 'class="active"' : ''}>Заявки</a>
+                    <a href="agency_contracts.html" ${currentPage === 'agency_contracts.html' ? 'class="active"' : ''}>Договоры</a>
+                    <a href="agency_staff.html" ${currentPage === 'agency_staff.html' ? 'class="active"' : ''}>Наш персонал</a>
+                    <a href="profile.html" ${currentPage === 'profile.html' ? 'class="active"' : ''}>Профиль</a>
+                    <a href="#" id="logoutBtn">Выход</a>
+                `;
+            }
+            else {
+                menuItems = `
+                    <a href="hr_dashboard.html" ${currentPage === 'hr_dashboard.html' ? 'class="active"' : ''}>Главная</a>
+                    <a href="hr_staff.html" ${currentPage === 'hr_staff.html' ? 'class="active"' : ''}>Реестр персонала</a>
+                    <a href="hr_requests.html" ${currentPage === 'hr_requests.html' ? 'class="active"' : ''}>Заявки</a>
+                    <a href="hr_protocols.html" ${currentPage === 'hr_protocols.html' ? 'class="active"' : ''}>Протоколы цен</a>
+                    <a href="profile.html" ${currentPage === 'profile.html' ? 'class="active"' : ''}>Профиль</a>
+                    <a href="#" id="logoutBtn">Выход</a>
+                `;
+            }
+            
+            const navbarHtml = `
+                <div class="navbar">
+                    <div class="nav-brand">HR CRM</div>
+                    <div class="nav-menu">
+                        ${menuItems}
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('navbarContainer').innerHTML = navbarHtml;
+            
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    logout();
+                });
+            }
+        }
+        
+        if (user.role === 'admin') {
+            document.getElementById('adminPanel').style.display = 'block';
+            loadOrganizationsForSelect();
+            loadAgenciesForSelect();
+            
+            document.getElementById('newUserRole').addEventListener('change', function() {
+                const role = this.value;
+                document.getElementById('newUserOrgRow').style.display = (role === 'shop_manager' || role === 'security') ? 'flex' : 'none';
+                document.getElementById('newUserAgencyRow').style.display = (role === 'agency') ? 'flex' : 'none';
+            });
+        }
+        
+        async function loadOrganizationsForSelect() {
+            try {
+                const response = await fetch('api/organizations.php?active=1');
+                const orgs = await response.json();
+                const select = document.getElementById('newUserOrganizationId');
+                select.innerHTML = '<option value="">Выберите магазин</option>' + 
+                    orgs.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки организаций:', error);
+            }
+        }
+        
+        async function loadAgenciesForSelect() {
+            try {
+                const response = await fetch('api/agencies.php?active=1');
+                const agencies = await response.json();
+                const select = document.getElementById('newUserAgencyId');
+                select.innerHTML = '<option value="">Выберите агентство</option>' + 
+                    agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки агентств:', error);
+            }
+        }
+
+        async function loadProfile() {
+            try {
+                const response = await fetch(`api/users.php?id=${user.id}`);
+                const data = await response.json();
+                
+                if (data) {
+                    document.getElementById('login').value = data.login || '';
+                    document.getElementById('email').value = data.email || '';
+                    document.getElementById('firstName').value = data.first_name || '';
+                    document.getElementById('lastName').value = data.last_name || '';
+                    document.getElementById('phone').value = data.phone || '';
+                    
+                    const roleNames = {
+                        'admin': 'Администратор',
+                        'shop_manager': 'Заведующий магазином',
+                        'security': 'Специалист охраны',
+                        'hr_specialist': 'Специалист по подбору',
+                        'agency': 'Кадровое агентство',
+                    };
+                    document.getElementById('role').value = roleNames[data.role] || data.role;
+                    
+                    if (data.role === 'shop_manager' || data.role === 'security') {
+                        if (data.organization_id) {
+                            const orgRes = await fetch(`api/organizations.php?id=${data.organization_id}`);
+                            const org = await orgRes.json();
+                            document.getElementById('organizationInfo').style.display = 'block';
+                            document.getElementById('organizationName').value = org.name || 'Не указан';
+                        }
+                    } else if (data.role === 'agency') {
+                        if (data.agency_id) {
+                            const agencyRes = await fetch(`api/agencies.php?id=${data.agency_id}`);
+                            const agency = await agencyRes.json();
+                            document.getElementById('agencyInfo').style.display = 'block';
+                            document.getElementById('agencyName').value = agency.name || 'Не указано';
+                        }
+                    }
+                }
+            } catch (error) {
+                showError('Ошибка загрузки профиля');
+            }
+        }
+
+        async function saveProfile() {
+            const data = {
+                id: user.id,
+                login: document.getElementById('login').value,
+                email: document.getElementById('email').value,
+                first_name: document.getElementById('firstName').value,
+                last_name: document.getElementById('lastName').value,
+                phone: document.getElementById('phone').value,
+                role: user.role,
+                is_active: 1
+            };
+            
+            try {
+                const response = await fetch('api/users.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Профиль обновлен');
+                    user.email = data.email;
+                    localStorage.setItem('user', JSON.stringify(user));
+                } else {
+                    showError(result.error || 'Ошибка обновления');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+
+        async function changePassword() {
+            const current = document.getElementById('currentPassword').value;
+            const newPass = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            
+            if (!current || !newPass || !confirm) {
+                showError('Заполните все поля');
+                return;
+            }
+            
+            if (newPass.length < 6) {
+                showError('Новый пароль должен быть не менее 6 символов');
+                return;
+            }
+            
+            if (newPass !== confirm) {
+                showError('Пароли не совпадают');
+                return;
+            }
+            
+            try {
+                const response = await fetch('api/change-password.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: user.id,
+                        current_password: current,
+                        new_password: newPass
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Пароль изменен');
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                } else {
+                    showError(result.error || 'Ошибка смены пароля');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+
+        let allUsers = [];
+        
+        async function loadUsers() {
+            try {
+                const response = await fetch('api/users.php');
+                const users = await response.json();
+                allUsers = users;
+                displayUsers(users);
+            } catch (error) {
+                showError('Ошибка загрузки пользователей');
+            }
+        }
+        
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersList');
+            
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">Нет пользователей</td></tr>';
+                return;
+            }
+            
+            const roleNames = {
+                'admin': 'Админ',
+                'shop_manager': 'Заведующий',
+                'security': 'Охрана',
+                'hr_specialist': 'HR',
+                'agency': 'Агентство'
+            };
+            
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.id}</td>
+                    <td><strong>${escapeHtml(u.login)}</strong></td>
+                    <td>${escapeHtml(u.email)}</td>
+                    <td>${escapeHtml(u.first_name || '')} ${escapeHtml(u.last_name || '')}</td>
+                    <td>${escapeHtml(u.phone) || '-'}</td>
+                    <td>
+                        <span class="badge ${u.role === 'admin' ? 'badge-danger' : 'badge-info'}">
+                            ${roleNames[u.role] || u.role}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${u.is_active ? 'badge-success' : 'badge-secondary'}">
+                            ${u.is_active ? 'Активен' : 'Заблокирован'}
+                        </span>
+                    </td>
+                    <td class="actions">
+                        <button class="btn btn-sm btn-warning" onclick="editUser(${u.id})">✏️</button>
+                        ${u.id != user.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">🗑️</button>` : '<span class="badge badge-secondary">Вы</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        document.getElementById('userSearch').addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            const filtered = allUsers.filter(u => 
+                (u.login && u.login.toLowerCase().includes(search)) ||
+                (u.email && u.email.toLowerCase().includes(search)) ||
+                (u.first_name && u.first_name.toLowerCase().includes(search)) ||
+                (u.last_name && u.last_name.toLowerCase().includes(search))
+            );
+            displayUsers(filtered);
+        });
+        
+        function showAddUserForm() {
+            const form = document.getElementById('addUserForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            if (form.style.display === 'block') {
+                document.getElementById('newUserLogin').value = '';
+                document.getElementById('newUserEmail').value = '';
+                document.getElementById('newUserFirstName').value = '';
+                document.getElementById('newUserLastName').value = '';
+                document.getElementById('newUserPhone').value = '';
+                document.getElementById('newUserRole').value = 'hr_specialist';
+                document.getElementById('newUserPassword').value = '';
+                document.getElementById('newUserActive').checked = true;
+                document.getElementById('newUserOrgRow').style.display = 'none';
+                document.getElementById('newUserAgencyRow').style.display = 'none';
+            }
+        }
+        
+        function hideAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'none';
+        }
+        
+        async function addUser() {
+            const data = {
+                login: document.getElementById('newUserLogin').value,
+                email: document.getElementById('newUserEmail').value,
+                password: document.getElementById('newUserPassword').value,
+                first_name: document.getElementById('newUserFirstName').value,
+                last_name: document.getElementById('newUserLastName').value,
+                phone: document.getElementById('newUserPhone').value,
+                role: document.getElementById('newUserRole').value,
+                organization_id: document.getElementById('newUserOrganizationId').value || null,
+                agency_id: document.getElementById('newUserAgencyId').value || null,
+                is_active: document.getElementById('newUserActive').checked ? 1 : 0
+            };
+            
+            if (!data.login || !data.email || !data.password) {
+                showError('Заполните все обязательные поля');
+                return;
+            }
+            
+            if (data.password.length < 6) {
+                showError('Пароль должен быть не менее 6 символов');
+                return;
+            }
+            
+            try {
+                const response = await fetch('api/users.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Пользователь добавлен');
+                    hideAddUserForm();
+                    loadUsers();
+                } else {
+                    showError(result.error || 'Ошибка добавления');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+        
+        async function editUser(id) {
+            const newLogin = prompt('Введите новый логин:');
+            if (!newLogin) return;
+            
+            const newEmail = prompt('Введите новый email:');
+            if (!newEmail) return;
+            
+            const newRole = prompt('Введите роль (admin/shop_manager/security/hr_specialist/agency):');
+            if (!newRole) return;
+            
+            try {
+                const response = await fetch('api/users.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: id,
+                        login: newLogin,
+                        email: newEmail,
+                        role: newRole,
+                        is_active: 1
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Пользователь обновлен');
+                    loadUsers();
+                } else {
+                    showError(result.error || 'Ошибка обновления');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+        
+        async function deleteUser(id) {
+            if (id == user.id) {
+                showError('Нельзя удалить собственную учетную запись');
+                return;
+            }
+            
+            if (!confirm('Вы уверены, что хотите удалить пользователя?')) return;
+            
+            try {
+                const response = await fetch(`api/users.php?id=${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Пользователь удален');
+                    loadUsers();
+                } else {
+                    showError(result.error || 'Ошибка удаления');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+        
+        loadNavbar();
+        loadProfile();
+        if (user.role === 'admin') {
+            loadUsers();
+        }
+    </script>
+</body>
+</html>

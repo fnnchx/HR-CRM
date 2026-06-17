@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в систему | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>HR CRM</h1>
+            <p>Вход в систему</p>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="login">Логин</label>
+                <input type="text" id="login" placeholder="Введите логин" required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Пароль</label>
+                <input type="password" id="password" placeholder="Введите пароль" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">Войти</button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>Нет аккаунта? Обратитесь к администратору</a></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const login = document.getElementById('login').value;
+            const password = document.getElementById('password').value;
+            
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+            
+            try {
+                const response = await fetch('api/login.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    document.getElementById('successMessage').textContent = 'Вход выполнен! Перенаправление...';
+                    document.getElementById('successMessage').style.display = 'block';
+                    
+                    setTimeout(() => {
+                        // Перенаправление согласно роли
+                        window.location.href = data.redirect || 'dashboard.html';
+                    }, 1000);
+                } else {
+                    document.getElementById('errorMessage').textContent = data.error || 'Неверный логин или пароль';
+                    document.getElementById('errorMessage').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = 'Ошибка подключения к серверу';
+                document.getElementById('errorMessage').style.display = 'block';
+            }
+        });
+        
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (user) {
+            const redirects = {
+                'admin': 'dashboard.html',
+                'shop_manager': 'shop_dashboard.html',
+                'security': 'security_dashboard.html',
+                'hr_specialist': 'hr_dashboard.html',
+                'agency': 'agency_dashboard.html'
+            };
+            window.location.href = redirects[user.role] || 'dashboard.html';
+        }
+    </script>
+</body>
+</html>

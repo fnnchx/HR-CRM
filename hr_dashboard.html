@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Специалист по подбору | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="hr_dashboard.html" class="active">Главная</a>
+            <a href="hr_staff.html">Реестр персонала</a>
+            <a href="hr_requests.html">Заявки</a>
+            <a href="hr_protocols.html">Протоколы цен</a>
+            <a href="hr_reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Панель специалиста по подбору персонала</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalStaff">0</div>
+                <div class="stat-label">Внешнего персонала</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalRequests">0</div>
+                <div class="stat-label">Активных заявок</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalAgencies">0</div>
+                <div class="stat-label">Агентств</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Последние заявки</h2>
+            <div id="recentRequests"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        if (user.role !== 'hr_specialist') window.location.href = 'dashboard.html';
+
+        async function loadStats() {
+            const staffRes = await fetch('api/external_staff.php');
+            const staff = await staffRes.json();
+            document.getElementById('totalStaff').textContent = staff.length;
+
+            const requestsRes = await fetch('api/staff_requests.php?role=hr_specialist');
+            const requests = await requestsRes.json();
+            document.getElementById('totalRequests').textContent = requests.filter(r => r.status === 'sent').length;
+
+            const agenciesRes = await fetch('api/agencies.php');
+            const agencies = await agenciesRes.json();
+            document.getElementById('totalAgencies').textContent = agencies.length;
+
+            // Последние заявки
+            const container = document.getElementById('recentRequests');
+            if (requests.length === 0) {
+                container.innerHTML = '<p>Нет заявок</p>';
+                return;
+            }
+            container.innerHTML = `
+                <table class="table">
+                    <thead><tr><th>Магазин</th><th>Должность</th><th>Кол-во</th><th>Дата</th><th>Статус</th><th>Действия</th></tr></thead>
+                    <tbody>
+                        ${requests.slice(0,5).map(r => `
+                            <tr>
+                                <td>${r.organization_name}</td>
+                                <td>${r.position}</td>
+                                <td>${r.quantity}</td>
+                                <td>${r.start_date}</td>
+                                <td><span class="badge badge-warning">${r.status}</span></td>
+                                <td><button class="btn btn-sm btn-primary" onclick="window.location.href='hr_request_view.html?id=${r.id}'">Подробнее</button></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
+        loadStats();
+    </script>
+</body>
+</html>

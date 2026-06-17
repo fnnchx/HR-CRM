@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчеты | Заведующий</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Заведующий</div>
+        <div class="nav-menu">
+            <a href="shop_dashboard.html">Главная</a>
+            <a href="shop_requests.html">Заявки</a>
+            <a href="shop_schedule.html">График работы</a>
+            <a href="shop_attendance.html">Подтверждение выхода</a>
+            <a href="shop_reconciliation.html">Акты сверки</a>
+            <a href="shop_reports.html" class="active">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Отчеты</h1>
+
+        <div class="card">
+            <h2>Отчет о выходе/невыходе персонала</h2>
+            <div class="filters">
+                <input type="date" id="dateFrom">
+                <input type="date" id="dateTo">
+                <select id="reportAgencyId">
+                    <option value="">Все агентства</option>
+                </select>
+                <button class="btn btn-primary" onclick="loadAttendanceReport()">Сформировать</button>
+                <button class="btn btn-success" onclick="exportReportCSV()">📊 Экспорт CSV</button>
+            </div>
+            <div id="attendanceReport"></div>
+        </div>
+
+        <div class="card">
+            <h2>Статистика по заявкам</h2>
+            <div id="requestsStats"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'shop_manager') window.location.href = 'login.html';
+
+        let currentReportData = [];
+        let agencies = [];
+
+        async function loadAgencies() {
+            const res = await fetch('api/agencies.php');
+            agencies = await res.json();
+            document.getElementById('reportAgencyId').innerHTML = '<option value="">Все агентства</option>' + agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+        }
+
+        async function loadAttendanceReport() {
+            const dateFrom = document.getElementById('dateFrom').value || new Date(new Date().setDate(1)).toISOString().split('T')[0];
+            const dateTo = document.getElementById('dateTo').value || new Date().toISOString().split('T')[0];
+            const agencyId = document.getElementById('reportAgencyId').value;
+            let url = `api/reports.php?type=attendance&organization_id=${user.organization_id}&date_from=${dateFrom}&date_to=${dateTo}`;
+            if (agencyId) url += `&agency_id=${agencyId}`;
+            const res = await fetch(url);
+            currentReportData = await res.json();
+            displayReport(currentReportData);
+        }
+
+        function displayReport(data) {
+            const container = document.getElementById('attendanceReport');
+            if (data.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">Нет данных</p>';
+                return;
+            }
+            let total = 0, present = 0, absent = 0;
+            container.innerHTML = `
+                <table class="table">
+                    <thead><tr><th>Дата</th><th>Сотрудник</th><th>Должность</th><th>План</th><th>Факт прихода</th><th>Факт ухода</th><th>Статус</th></tr></thead>
+                    <tbody>
+                        ${data.map(r => {
+                            total++;
+                            if (r.status === 'confirmed') present++;
+                            if (r.status === 'absent') absent++;
+                            return `<tr><td>${r.schedule_date}</td><td>${r.full_name}</td><td>${r.position || '-'}</td><td>${r.planned_start || '-'} - ${r.planned_end || '-'}</td><td>${r.actual_start || '-'}</td><td>${r.actual_end || '-'}</td><td><span class="badge ${r.status === 'confirmed' ? 'badge-success' : 'badge-danger'}">${r.status === 'confirmed' ? 'Присутствовал' : 'Отсутствовал'}</span></td></tr>`;
+                        }).join('')}
+                    </tbody>
+                    <tfoot><tr class="total-row"><td colspan="6"><strong>Итого:</strong></td><td><strong>Присутствовали: ${present}, Отсутствовали: ${absent}</strong></td></tr></tfoot>
+                </table>
+            `;
+            loadRequestsStats();
+        }
+
+        async function loadRequestsStats() {
+            const res = await fetch(`api/staff_requests.php?organization_id=${user.organization_id}`);
+            const requests = await res.json();
+            const sent = requests.filter(r => r.status === 'sent').length;
+            const confirmed = requests.filter(r => r.status === 'confirmed').length;
+            const completed = requests.filter(r => r.status === 'completed').length;
+            document.getElementById('requestsStats').innerHTML = `
+                <table class="table">
+                    <thead><tr><th>Статус</th><th>Количество</th></tr></thead>
+                    <tbody>
+                        <tr><td>Отправлены</td><td>${sent}</td></tr>
+                        <tr><td>Подтверждены</td><td>${confirmed}</td></tr>
+                        <tr><td>Выполнены</td><td>${completed}</td></tr>
+                        <tr class="total-row"><td><strong>Всего</strong></td><td><strong>${requests.length}</strong></td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function exportReportCSV() {
+            if (currentReportData.length === 0) { showError('Нет данных'); return; }
+            let csv = "Дата;Сотрудник;Должность;План прихода;План ухода;Факт прихода;Факт ухода;Статус\n";
+            currentReportData.forEach(r => { csv += `${r.schedule_date};${r.full_name};${r.position || ''};${r.planned_start || ''};${r.planned_end || ''};${r.actual_start || ''};${r.actual_end || ''};${r.status}\n`; });
+            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `attendance_report_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        document.getElementById('dateFrom').value = new Date(new Date().setDate(1)).toISOString().split('T')[0];
+        document.getElementById('dateTo').value = new Date().toISOString().split('T')[0];
+        document.getElementById('logoutBtn').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+        loadAgencies();
+        loadAttendanceReport();
+    </script>
+</body>
+</html>

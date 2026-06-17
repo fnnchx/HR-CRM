@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Кадровое агентство | Панель</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Агентство</div>
+        <div class="nav-menu">
+            <a href="agency_dashboard.html" class="active">Главная</a>
+            <a href="agency_requests.html">Заявки</a>
+            <a href="agency_contracts.html">Договоры</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+    <div class="container">
+        <h1>Панель кадрового агентства</h1>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-number" id="newRequests">0</div><div class="stat-label">Новых заявок</div></div>
+            <div class="stat-card"><div class="stat-number" id="confirmedRequests">0</div><div class="stat-label">Подтверждено</div></div>
+            <div class="stat-card"><div class="stat-number" id="activeStaff">0</div><div class="stat-label">Нашего персонала</div></div>
+        </div>
+        <div class="card"><h2>Новые заявки</h2><div id="newRequestsList"></div></div>
+    </div>
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'agency') window.location.href = 'login.html';
+        async function loadStats() {
+            const res = await fetch(`api/staff_requests.php?role=agency&agency_id=${user.agency_id}`);
+            const requests = await res.json();
+            document.getElementById('newRequests').textContent = requests.filter(r => r.status === 'sent').length;
+            document.getElementById('confirmedRequests').textContent = requests.filter(r => r.status === 'confirmed').length;
+            const staffRes = await fetch(`api/external_staff.php?agency_id=${user.agency_id}`);
+            const staff = await staffRes.json();
+            document.getElementById('activeStaff').textContent = staff.length;
+            const newReqs = requests.filter(r => r.status === 'sent').slice(0,5);
+            document.getElementById('newRequestsList').innerHTML = newReqs.length ? `<table class="table"><thead><tr><th>№</th><th>Магазин</th><th>Должность</th><th>Кол-во</th><th>Действия</th></tr></thead><tbody>${newReqs.map(r => `<tr><td>${r.request_number}</td><td>${r.organization_name}</td><td>${r.position}</td><td>${r.quantity}</td><td><button class="btn btn-sm btn-success" onclick="confirmRequest(${r.id})">✓ Подтвердить</button> <button class="btn btn-sm btn-danger" onclick="rejectRequest(${r.id})">✗ Отклонить</button></td></tr>`).join('')}</tbody></table>` : '<p>Нет новых заявок</p>';
+        }
+        async function confirmRequest(id) {
+            await fetch('api/staff_requests.php', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:'confirmed'})});
+            loadStats();
+        }
+        async function rejectRequest(id) {
+            const reason = prompt('Причина отклонения:');
+            if(reason) await fetch('api/staff_requests.php', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:'rejected',rejected_reason:reason})});
+            loadStats();
+        }
+        document.getElementById('logoutBtn').onclick = (e) => { e.preventDefault(); logout(); };
+        loadStats();
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>

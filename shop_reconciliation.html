@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Акты сверки | Заведующий</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Заведующий</div>
+        <div class="nav-menu">
+            <a href="shop_dashboard.html">Главная</a>
+            <a href="shop_requests.html">Заявки</a>
+            <a href="shop_schedule.html">График работы</a>
+            <a href="shop_attendance.html">Подтверждение выхода</a>
+            <a href="shop_reconciliation.html" class="active">Акты сверки</a>
+            <a href="shop_reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Акты сверки с агентствами</h1>
+            <button class="btn btn-success" onclick="showCreateActForm()">+ Создать акт сверки</button>
+        </div>
+
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+
+        <!-- Форма создания акта -->
+        <div id="actForm" class="card" style="display: none;">
+            <h3>Создание акта сверки</h3>
+            <form onsubmit="event.preventDefault(); createReconciliationAct();">
+                <div class="form-group">
+                    <label>Кадровое агентство *</label>
+                    <select id="agencyId" required></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Период с *</label>
+                        <input type="date" id="periodFrom" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Период по *</label>
+                        <input type="date" id="periodTo" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Примечания</label>
+                    <textarea id="actNotes" rows="3"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Сформировать</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideActForm()">Отмена</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="filters">
+                <select id="statusFilter">
+                    <option value="">Все статусы</option>
+                    <option value="draft">Черновики</option>
+                    <option value="sent">Отправлены</option>
+                    <option value="confirmed">Подтверждены</option>
+                </select>
+                <button class="btn btn-primary" onclick="applyFilters()">Применить</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Сбросить</button>
+            </div>
+            <div id="actsList"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'shop_manager') window.location.href = 'login.html';
+
+        let allActs = [];
+        let agencies = [];
+
+        async function loadAgencies() {
+            const res = await fetch('api/agencies.php?active=1');
+            agencies = await res.json();
+            document.getElementById('agencyId').innerHTML = agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+        }
+
+        async function loadActs() {
+            const res = await fetch(`api/reconciliation_acts.php?organization_id=${user.organization_id}`);
+            allActs = await res.json();
+            displayActs(allActs);
+        }
+
+        function displayActs(acts) {
+            const container = document.getElementById('actsList');
+            if (acts.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">Нет актов сверки</p>';
+                return;
+            }
+            container.innerHTML = `
+                <table class="table">
+                    <thead><tr><th>№ акта</th><th>Агентство</th><th>Период</th><th>Часы</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead>
+                    <tbody>
+                        ${acts.map(a => `
+                            <tr>
+                                <td>${a.act_number || 'б/н'}</td>
+                                <td>${a.agency_name}</td>
+                                <td>${a.period_from} - ${a.period_to}</td>
+                                <td>${a.total_hours || 0} ч.</td>
+                                <td>${formatMoney(a.total_amount)}</td>
+                                <td><span class="badge ${a.status === 'confirmed' ? 'badge-success' : (a.status === 'sent' ? 'badge-warning' : 'badge-secondary')}">${a.status === 'confirmed' ? 'Подтвержден' : (a.status === 'sent' ? 'Отправлен' : 'Черновик')}</span></td>
+                                <td class="actions">
+                                    <button class="btn btn-sm btn-info" onclick="viewAct(${a.id})">👁️</button>
+                                    <button class="btn btn-sm btn-primary" onclick="printAct(${a.id})">🖨️</button>
+                                    ${a.status === 'draft' ? `<button class="btn btn-sm btn-success" onclick="sendAct(${a.id})">📧 Отправить</button>` : ''}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function showCreateActForm() {
+            document.getElementById('actForm').style.display = 'block';
+            const firstDay = new Date();
+            firstDay.setDate(1);
+            document.getElementById('periodFrom').value = firstDay.toISOString().split('T')[0];
+            document.getElementById('periodTo').value = new Date().toISOString().split('T')[0];
+        }
+
+        function hideActForm() {
+            document.getElementById('actForm').style.display = 'none';
+        }
+
+        async function createReconciliationAct() {
+            const data = {
+                organization_id: user.organization_id,
+                agency_id: document.getElementById('agencyId').value,
+                period_from: document.getElementById('periodFrom').value,
+                period_to: document.getElementById('periodTo').value,
+                notes: document.getElementById('actNotes').value,
+                created_by: user.id
+            };
+            const res = await fetch('api/reconciliation_acts.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await res.json();
+            if (result.success) {
+                showSuccess('Акт сверки создан');
+                hideActForm();
+                loadActs();
+            } else {
+                showError(result.error || 'Ошибка');
+            }
+        }
+
+        function viewAct(id) {
+            const act = allActs.find(a => a.id == id);
+            if (act) {
+                alert(`Акт №${act.act_number}\nАгентство: ${act.agency_name}\nПериод: ${act.period_from} - ${act.period_to}\nОтработано часов: ${act.total_hours || 0}\nСумма: ${formatMoney(act.total_amount)}\nСтатус: ${act.status}`);
+            }
+        }
+
+        function printAct(id) {
+            window.open(`reconciliation_print.html?id=${id}`, '_blank');
+        }
+
+        async function sendAct(id) {
+            await fetch('api/reconciliation_acts.php', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status: 'sent' })
+            });
+            showSuccess('Акт отправлен');
+            loadActs();
+        }
+
+        function applyFilters() {
+            const status = document.getElementById('statusFilter').value;
+            let filtered = [...allActs];
+            if (status) filtered = filtered.filter(a => a.status === status);
+            displayActs(filtered);
+        }
+
+        function resetFilters() {
+            document.getElementById('statusFilter').value = '';
+            displayActs(allActs);
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+        loadAgencies();
+        loadActs();
+    </script>
+</body>
+</html>

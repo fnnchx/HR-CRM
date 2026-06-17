@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчеты | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html">Агентства</a>
+            <a href="contracts.html">Договоры</a>
+            <a href="reports.html" class="active">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Отчеты</h1>
+        
+        <div class="reports-grid">
+            <!-- Отчет по истекающим договорам -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Истекающие договоры</h2>
+                    <div>
+                        <button class="btn btn-success btn-sm" onclick="exportToCSV('expiring')">📊 CSV</button>
+                        <button class="btn btn-danger btn-sm" onclick="exportToPDF('expiring')">📄 PDF</button>
+                    </div>
+                </div>
+                <div class="report-controls">
+                    <label>За дней:</label>
+                    <select id="expiringDays" onchange="loadExpiringReport()">
+                        <option value="7">7 дней</option>
+                        <option value="14">14 дней</option>
+                        <option value="30" selected>30 дней</option>
+                        <option value="60">60 дней</option>
+                        <option value="90">90 дней</option>
+                    </select>
+                </div>
+                <div id="expiringReport" class="report-content">
+                    <p class="text-center">Загрузка...</p>
+                </div>
+            </div>
+            
+            <!-- Отчет по агентствам -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Статистика по агентствам</h2>
+                    <div>
+                        <button class="btn btn-success btn-sm" onclick="exportToCSV('agencies')">📊 CSV</button>
+                        <button class="btn btn-danger btn-sm" onclick="exportToPDF('agencies')">📄 PDF</button>
+                    </div>
+                </div>
+                <div id="agencyReport" class="report-content">
+                    <p class="text-center">Загрузка...</p>
+                </div>
+            </div>
+            
+            <!-- Отчет по месяцам 2026 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Статистика по месяцам 2026</h2>
+                    <div>
+                        <button class="btn btn-success btn-sm" onclick="exportToCSV('monthly')">📊 CSV</button>
+                        <button class="btn btn-danger btn-sm" onclick="exportToPDF('monthly')">📄 PDF</button>
+                    </div>
+                </div>
+                <div id="monthlyReport" class="report-content">
+                    <p class="text-center">Загрузка...</p>
+                </div>
+            </div>
+            
+            <!-- Отчет по всем договорам -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Все договоры</h2>
+                    <div>
+                        <button class="btn btn-success btn-sm" onclick="exportToCSV('contracts')">📊 CSV</button>
+                        <button class="btn btn-danger btn-sm" onclick="exportToPDF('contracts')">📄 PDF</button>
+                    </div>
+                </div>
+                <div id="contractsReport" class="report-content">
+                    <p class="text-center">Загрузка...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/reports.js"></script>
+    <script>
+        // Проверка авторизации
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        });
+    </script>
+</body>
+</html>

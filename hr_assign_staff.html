@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Назначение персонала | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .assign-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        .staff-list {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #c8e6c9;
+            border-radius: 10px;
+            padding: 1rem;
+        }
+        .staff-item {
+            display: flex;
+            align-items: center;
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .staff-item:hover {
+            background: #e8f5e9;
+        }
+        .staff-item.selected {
+            background: #c8e6c9;
+            border-left: 4px solid #2e7d32;
+        }
+        .staff-item input {
+            margin-right: 1rem;
+            width: 20px;
+            height: 20px;
+        }
+        .staff-info {
+            flex: 1;
+        }
+        .staff-name {
+            font-weight: bold;
+            color: #1b5e20;
+        }
+        .staff-position {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .staff-status {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        .staff-status.available {
+            background: #c8e6c9;
+            color: #1b5e20;
+        }
+        .staff-status.busy {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .schedule-preview {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+        }
+        .days-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .day-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid #c8e6c9;
+            font-size: 0.8rem;
+        }
+        .day-checkbox.selected {
+            background: #2e7d32;
+            color: white;
+            border-color: #2e7d32;
+        }
+        .time-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin: 1rem 0;
+        }
+        .time-row label {
+            font-weight: normal;
+            margin: 0;
+        }
+        .time-row input {
+            width: 100px;
+            padding: 0.5rem;
+            border: 1px solid #c8e6c9;
+            border-radius: 6px;
+        }
+        .selected-count {
+            background: #2e7d32;
+            color: white;
+            padding: 0.2rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .agency-response {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .agency-response .response-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .response-badge.available {
+            background: #c8e6c9;
+            color: #1b5e20;
+        }
+        .response-badge.partial {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .response-badge.unavailable {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .response-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+        .position-filter {
+            margin-bottom: 1rem;
+        }
+        .position-filter select {
+            padding: 0.5rem;
+            border: 1px solid #c8e6c9;
+            border-radius: 6px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Специалист по подбору</div>
+        <div class="nav-menu">
+            <a href="hr_dashboard.html">Главная</a>
+            <a href="hr_staff.html">Реестр персонала</a>
+            <a href="hr_requests.html" class="active">Заявки</a>
+            <a href="hr_protocols.html">Протоколы цен</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Назначение персонала на заявку</h1>
+            <button class="btn btn-secondary" onclick="window.location.href='hr_requests.html'">← Назад к заявкам</button>
+        </div>
+
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+
+        <div class="card">
+            <h2>Информация о заявке</h2>
+            <div id="requestInfo"></div>
+        </div>
+
+        <div class="card" id="agencyResponseCard" style="display: none;">
+            <h2>Ответ кадрового агентства</h2>
+            <div id="agencyResponseContent"></div>
+        </div>
+
+        <div class="assign-container">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Доступные сотрудники</h2>
+                    <span id="selectedCount" class="selected-count">Выбрано: 0</span>
+                </div>
+                <div class="position-filter">
+                    <select id="positionFilter">
+                        <option value="">Все должности</option>
+                    </select>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="staffSearch" placeholder="Поиск по ФИО...">
+                </div>
+                <div id="staffList" class="staff-list">
+                    <p class="text-center">Загрузка...</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Настройки назначения</h2>
+                </div>
+                
+                <div id="noStaffSelected" style="display: block;">
+                    <p class="alert alert-info">Выберите сотрудников из списка слева</p>
+                </div>
+                
+                <div id="assignSettings" style="display: none;">
+                    <div class="form-group">
+                        <label>Выбранные сотрудники:</label>
+                        <div id="selectedStaffList"></div>
+                    </div>
+                    
+                    <div class="schedule-preview">
+                        <label><strong>Период работы</strong></label>
+                        <div class="time-row">
+                            <label>Дата начала:</label>
+                            <input type="date" id="dateFrom">
+                            <label>Дата окончания:</label>
+                            <input type="date" id="dateTo">
+                        </div>
+                        
+                        <label><strong>Время работы</strong></label>
+                        <div class="time-row">
+                            <label>Время прихода:</label>
+                            <input type="time" id="timeStart" value="09:00">
+                            <label>Время ухода:</label>
+                            <input type="time" id="timeEnd" value="18:00">
+                        </div>
+                        
+                        <label><strong>Выберите дни недели</strong></label>
+                        <div class="days-grid" id="daysGrid">
+                            <label class="day-checkbox"><input type="checkbox" value="1" checked> Пн</label>
+                            <label class="day-checkbox"><input type="checkbox" value="2" checked> Вт</label>
+                            <label class="day-checkbox"><input type="checkbox" value="3" checked> Ср</label>
+                            <label class="day-checkbox"><input type="checkbox" value="4" checked> Чт</label>
+                            <label class="day-checkbox"><input type="checkbox" value="5" checked> Пт</label>
+                            <label class="day-checkbox"><input type="checkbox" value="6"> Сб</label>
+                            <label class="day-checkbox"><input type="checkbox" value="7"> Вс</label>
+                        </div>
+                    </div>
+                    
+                    <div class="schedule-preview">
+                        <strong>Предпросмотр:</strong>
+                        <div id="previewInfo"></div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-success" onclick="assignStaff()">✅ Назначить выбранных сотрудников</button>
+                        <button class="btn btn-secondary" onclick="clearSelection()">Очистить выбор</button>
+                        <button class="btn btn-info" onclick="checkAvailability()">🔍 Проверить доступность</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+        if (user.role !== 'hr_specialist' && user.role !== 'admin') {
+            window.location.href = 'dashboard.html';
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const requestId = urlParams.get('request_id');
+        
+        if (!requestId) {
+            window.location.href = 'hr_requests.html';
+        }
+
+        let requestData = null;
+        let availableStaff = [];
+        let selectedStaffIds = new Set();
+        let allPositions = [];
+
+        async function loadRequest() {
+            try {
+                const response = await fetch(`api/staff_requests.php?id=${requestId}`);
+                requestData = await response.json();
+                displayRequestInfo();
+                
+                document.getElementById('dateFrom').value = requestData.start_date;
+                document.getElementById('dateTo').value = requestData.end_date || requestData.start_date;
+                
+                loadAvailableStaff();
+                
+                checkAgencyResponse();
+            } catch (error) {
+                showError('Ошибка загрузки заявки');
+            }
+        }
+
+        function displayRequestInfo() {
+            const container = document.getElementById('requestInfo');
+            container.innerHTML = `
+                <table class="info-table">
+                    <tr><th>Номер заявки:</th><td>${requestData.request_number || 'б/н'}</td></tr>
+                    <tr><th>Магазин:</th><td>${requestData.organization_name || '-'}</td></tr>
+                    <tr><th>Должность:</th><td><strong>${requestData.position}</strong></td></tr>
+                    <tr><th>Подразделение:</th><td>${requestData.department || '-'}</td></tr>
+                    <tr><th>Количество:</th><td>${requestData.quantity} чел.</td></tr>
+                    <tr><th>Период:</th><td>${requestData.start_date} - ${requestData.end_date || 'бессрочно'}</td></tr>
+                    <tr><th>Статус:</th><td><span class="badge badge-success">Подтверждена</span></td></tr>
+                    <tr><th>Требуемая должность:</th><td><span class="badge badge-info">${requestData.position}</span></td></tr>
+                </table>
+            `;
+        }
+
+        function checkAgencyResponse() {
+            const card = document.getElementById('agencyResponseCard');
+            const content = document.getElementById('agencyResponseContent');
+            
+            const stats = requestData.staff_stats || {};
+            
+            if (stats.total === 0) {
+                card.style.display = 'block';
+                content.innerHTML = `
+                    <div class="agency-response">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span class="response-badge unavailable">НЕТ СОТРУДНИКОВ</span>
+                            <span style="color: #721c24;">В агентстве нет сотрудников с должностью <strong>${requestData.position}</strong></span>
+                        </div>
+                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                            Рекомендуется обратиться к другим агентствам или изменить должность в заявке.
+                        </div>
+                        <div class="response-actions">
+                            <button class="btn btn-warning" onclick="editRequest()">Изменить заявку</button>
+                            <button class="btn btn-danger" onclick="rejectRequest()">Отменить заявку</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (stats.available < requestData.quantity) {
+                card.style.display = 'block';
+                const available = stats.available || 0;
+                const total = stats.total || 0;
+                content.innerHTML = `
+                    <div class="agency-response">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span class="response-badge partial">ЧАСТИЧНО ХВАТАЕТ</span>
+                            <span style="color: #856404;">Доступно <strong>${available}</strong> из <strong>${total}</strong> сотрудников на должности <strong>${requestData.position}</strong></span>
+                        </div>
+                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                            ${available === 0 ? 'Нет свободных сотрудников на указанный период.' : 'Некоторые сотрудники уже заняты на другие смены.'}
+                            ${available < requestData.quantity ? `Не хватает ${requestData.quantity - available} сотрудников.` : ''}
+                        </div>
+                        <div class="response-actions">
+                            <button class="btn btn-success" onclick="assignWithWarning()">📝 Назначить доступных (${available})</button>
+                            <button class="btn btn-warning" onclick="editRequest()">✏️ Скорректировать заявку</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (stats.available >= requestData.quantity) {
+                card.style.display = 'block';
+                const available = stats.available || 0;
+                const total = stats.total || 0;
+                content.innerHTML = `
+                    <div class="agency-response">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span class="response-badge available">ДОСТАТОЧНО СОТРУДНИКОВ</span>
+                            <span style="color: #1b5e20;">Доступно <strong>${available}</strong> из <strong>${total}</strong> сотрудников на должности <strong>${requestData.position}</strong></span>
+                        </div>
+                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                            Можно приступать к назначению персонала.
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadAvailableStaff() {
+            try {
+                const url = `api/external_staff.php?agency_id=${requestData.agency_id}&organization_id=${requestData.organization_id}&is_active=1`;
+                const response = await fetch(url);
+                let staff = await response.json();
+                
+                staff = staff.filter(s => s.position === requestData.position);
+                
+                availableStaff = staff;
+                allPositions = [...new Set(staff.map(s => s.position))];
+                
+                const positionFilter = document.getElementById('positionFilter');
+                positionFilter.innerHTML = '<option value="">Все должности</option>' + 
+                    allPositions.map(p => `<option value="${p}">${p}</option>`).join('');
+                
+                displayStaffList(availableStaff);
+            } catch (error) {
+                showError('Ошибка загрузки сотрудников');
+            }
+        }
+
+        function displayStaffList(staff) {
+            const container = document.getElementById('staffList');
+            
+            if (staff.length === 0) {
+                container.innerHTML = `
+                    <p class="alert alert-warning">
+                        Нет сотрудников с должностью <strong>${requestData.position}</strong>.
+                        <br>Возможно, нужно:
+                        <br>1. Обратиться к другому агентству
+                        <br>2. Изменить должность в заявке
+                        <br>3. Добавить сотрудников в реестр
+                    </p>
+                `;
+                return;
+            }
+            
+            container.innerHTML = staff.map(s => {
+                const isSelected = selectedStaffIds.has(s.id);
+                return `
+                    <div class="staff-item ${isSelected ? 'selected' : ''}" onclick="toggleStaff(${s.id})" data-id="${s.id}">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleStaff(${s.id})">
+                        <div class="staff-info">
+                            <div class="staff-name">${escapeHtml(s.full_name)}</div>
+                            <div class="staff-position">${escapeHtml(s.position || 'Без должности')} | ${escapeHtml(s.agency_name) || '-'}</div>
+                        </div>
+                        <span class="staff-status available">Доступен</span>
+                    </div>
+                `;
+            }).join('');
+            
+            updateSelectedCount();
+        }
+
+        function toggleStaff(id) {
+            if (selectedStaffIds.has(id)) {
+                selectedStaffIds.delete(id);
+            } else {
+                selectedStaffIds.add(id);
+            }
+            displayStaffList(availableStaff);
+            updateSelectedStaffList();
+            updatePreview();
+        }
+
+        document.getElementById('positionFilter').addEventListener('change', function() {
+            const position = this.value;
+            let filtered = availableStaff;
+            if (position) {
+                filtered = filtered.filter(s => s.position === position);
+            }
+            const search = document.getElementById('staffSearch').value.toLowerCase();
+            if (search) {
+                filtered = filtered.filter(s => 
+                    s.full_name.toLowerCase().includes(search)
+                );
+            }
+            displayStaffList(filtered);
+        });
+
+        // Поиск
+        document.getElementById('staffSearch').addEventListener('input', function() {
+            const search = this.value.toLowerCase();
+            const position = document.getElementById('positionFilter').value;
+            let filtered = availableStaff;
+            if (position) {
+                filtered = filtered.filter(s => s.position === position);
+            }
+            if (search) {
+                filtered = filtered.filter(s => 
+                    s.full_name.toLowerCase().includes(search)
+                );
+            }
+            displayStaffList(filtered);
+        });
+
+        function updateSelectedCount() {
+            const count = selectedStaffIds.size;
+            document.getElementById('selectedCount').innerHTML = `Выбрано: ${count}`;
+            
+            if (count > 0) {
+                document.getElementById('noStaffSelected').style.display = 'none';
+                document.getElementById('assignSettings').style.display = 'block';
+            } else {
+                document.getElementById('noStaffSelected').style.display = 'block';
+                document.getElementById('assignSettings').style.display = 'none';
+            }
+        }
+
+        function updateSelectedStaffList() {
+            const selectedStaff = availableStaff.filter(s => selectedStaffIds.has(s.id));
+            const container = document.getElementById('selectedStaffList');
+            
+            if (selectedStaff.length === 0) {
+                container.innerHTML = '<span class="badge badge-secondary">Нет выбранных</span>';
+                return;
+            }
+            
+            container.innerHTML = selectedStaff.map(s => `
+                <span class="badge badge-info" style="margin: 0.2rem; display: inline-block;">
+                    ${escapeHtml(s.full_name)}
+                    <button onclick="toggleStaff(${s.id})" style="background:none; border:none; color:white; cursor:pointer;">✖</button>
+                </span>
+            `).join('');
+        }
+
+        function updatePreview() {
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            const timeStart = document.getElementById('timeStart').value;
+            const timeEnd = document.getElementById('timeEnd').value;
+            const checkedDays = Array.from(document.querySelectorAll('#daysGrid input:checked')).map(cb => parseInt(cb.value));
+            
+            if (!dateFrom || !dateTo) {
+                document.getElementById('previewInfo').innerHTML = '<span class="badge badge-warning">Выберите период</span>';
+                return;
+            }
+            
+            const days = calculateWorkDays(dateFrom, dateTo, checkedDays);
+            const totalShifts = selectedStaffIds.size * days;
+            
+            document.getElementById('previewInfo').innerHTML = `
+                <div class="time-row">
+                    <span>${selectedStaffIds.size} сотрудников × ${days} дней = <strong>${totalShifts}</strong> рабочих смен</span>
+                </div>
+                <div class="time-row">
+                    <span>Ежедневно с ${timeStart} до ${timeEnd}</span>
+                </div>
+                <div class="days-grid">
+                    ${days > 0 ? `<span class="badge badge-success">✅ Всего рабочих дней: ${days}</span>` : '<span class="badge badge-danger">❌ Нет рабочих дней</span>'}
+                    ${selectedStaffIds.size >= requestData.quantity ? `<span class="badge badge-success">✅ Достаточно сотрудников (${selectedStaffIds.size}/${requestData.quantity})</span>` : `<span class="badge badge-danger">⚠️ Нужно ${requestData.quantity} сотрудников, выбрано ${selectedStaffIds.size}</span>`}
+                </div>
+            `;
+        }
+
+        function calculateWorkDays(dateFrom, dateTo, weekdays) {
+            const start = new Date(dateFrom);
+            const end = new Date(dateTo);
+            let count = 0;
+            
+            const current = new Date(start);
+            while (current <= end) {
+                const dayOfWeek = current.getDay();
+                let jsDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+                if (weekdays.includes(jsDay)) {
+                    count++;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return count;
+        }
+
+        function checkAvailability() {
+            const stats = requestData.staff_stats || {};
+            const available = stats.available || 0;
+            const total = stats.total || 0;
+            
+            if (available === 0) {
+                showError('Нет доступных сотрудников на указанный период');
+            } else if (available < requestData.quantity) {
+                showWarning(`Доступно только ${available} сотрудников, требуется ${requestData.quantity}`);
+            } else {
+                showSuccess(`Доступно ${available} сотрудников, достаточно для заявки`);
+            }
+        }
+
+        function assignWithWarning() {
+            const stats = requestData.staff_stats || {};
+            const available = stats.available || 0;
+            
+            if (available < requestData.quantity) {
+                if (!confirm(`Доступно только ${available} сотрудников, но требуется ${requestData.quantity}. Назначить доступных?`)) {
+                    return;
+                }
+            }
+            
+            const availableStaffIds = availableStaff.map(s => s.id);
+            selectedStaffIds = new Set(availableStaffIds);
+            displayStaffList(availableStaff);
+            updateSelectedStaffList();
+            updatePreview();
+            updateSelectedCount();
+            
+            showSuccess(`Выбрано ${selectedStaffIds.size} сотрудников`);
+        }
+
+        function editRequest() {
+            window.location.href = `hr_edit_request.html?id=${requestId}`;
+        }
+
+        function rejectRequest() {
+            if (!confirm('Отменить заявку?')) return;
+            window.location.href = `hr_requests.html`;
+        }
+
+        async function assignStaff() {
+            if (selectedStaffIds.size === 0) {
+                showError('Выберите хотя бы одного сотрудника');
+                return;
+            }
+            
+            if (selectedStaffIds.size < requestData.quantity) {
+                if (!confirm(`Выбрано ${selectedStaffIds.size} сотрудников, но требуется ${requestData.quantity}. Продолжить?`)) {
+                    return;
+                }
+            }
+            
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            const timeStart = document.getElementById('timeStart').value;
+            const timeEnd = document.getElementById('timeEnd').value;
+            const checkedDays = Array.from(document.querySelectorAll('#daysGrid input:checked')).map(cb => parseInt(cb.value));
+            
+            if (!dateFrom || !dateTo) {
+                showError('Выберите период работы');
+                return;
+            }
+            
+            if (!timeStart || !timeEnd) {
+                showError('Укажите время работы');
+                return;
+            }
+            
+            const days = calculateWorkDays(dateFrom, dateTo, checkedDays);
+            const confirmMsg = `Назначить ${selectedStaffIds.size} сотрудников на период с ${dateFrom} по ${dateTo}?\n` +
+                `Рабочие дни: ${checkedDays.join(', ')}\n` +
+                `Время: ${timeStart} - ${timeEnd}\n` +
+                `Всего смен: ${selectedStaffIds.size * days}\n` +
+                (selectedStaffIds.size < requestData.quantity ? `Внимание: требуется ${requestData.quantity} сотрудников, назначено ${selectedStaffIds.size}` : '');
+            
+            if (!confirm(confirmMsg)) return;
+            
+            let successCount = 0;
+            let totalDays = 0;
+            
+            for (const staffId of selectedStaffIds) {
+                let currentDate = new Date(dateFrom);
+                const endDate = new Date(dateTo);
+                
+                while (currentDate <= endDate) {
+                    const dayOfWeek = currentDate.getDay();
+                    let jsDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+                    
+                    if (checkedDays.includes(jsDay)) {
+                        const dateStr = currentDate.toISOString().split('T')[0];
+                        try {
+                            const response = await fetch('api/work_schedule.php', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    external_staff_id: staffId,
+                                    request_id: requestId,
+                                    schedule_date: dateStr,
+                                    planned_start: timeStart,
+                                    planned_end: timeEnd
+                                })
+                            });
+                            const result = await response.json();
+                            if (result.success) {
+                                successCount++;
+                            }
+                        } catch(e) {
+                            console.error(e);
+                        }
+                        totalDays++;
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            }
+            
+            showSuccess(`Назначено ${selectedStaffIds.size} сотрудников на ${totalDays} рабочих дней`);
+            
+            setTimeout(() => {
+                window.location.href = 'hr_requests.html';
+            }, 1500);
+        }
+
+        function clearSelection() {
+            selectedStaffIds.clear();
+            displayStaffList(availableStaff);
+            updateSelectedStaffList();
+            updatePreview();
+            updateSelectedCount();
+        }
+
+        document.getElementById('dateFrom').addEventListener('change', updatePreview);
+        document.getElementById('dateTo').addEventListener('change', updatePreview);
+        document.getElementById('timeStart').addEventListener('change', updatePreview);
+        document.getElementById('timeEnd').addEventListener('change', updatePreview);
+        document.querySelectorAll('#daysGrid input').forEach(cb => {
+            cb.addEventListener('change', updatePreview);
+        });
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
+        loadRequest();
+    </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заявки | Охрана</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Охрана</div>
+        <div class="nav-menu">
+            <a href="security_dashboard.html">Главная</a>
+            <a href="security_schedule.html">График работы</a>
+            <a href="security_attendance.html">Отметка прихода/ухода</a>
+            <a href="security_requests.html" class="active">Заявки</a>
+            <a href="security_reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Заявки на внешний персонал</h1>
+        
+        <div class="card">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Поиск по должности...">
+            </div>
+            
+            <div id="requestsList"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        if (user.role !== 'security') window.location.href = 'dashboard.html';
+
+        let allRequests = [];
+
+        async function loadRequests() {
+            const response = await fetch(`api/staff_requests.php?organization_id=${user.organization_id}`);
+            allRequests = await response.json();
+            displayRequests(allRequests);
+        }
+
+        function displayRequests(requests) {
+            const container = document.getElementById('requestsList');
+            
+            if (requests.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">Нет заявок</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>№ заявки</th>
+                            <th>Должность</th>
+                            <th>Количество</th>
+                            <th>Период</th>
+                            <th>Статус</th>
+                            <th>Агентство</th>
+                            <th>Дата создания</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${requests.map(r => `
+                            <tr>
+                                <td><strong>${r.request_number || 'б/н'}</strong></td>
+                                <td>${r.position}</td>
+                                <td>${r.quantity} чел.</td>
+                                <td>${r.start_date} - ${r.end_date || 'бессрочно'}</td>
+                                <td>
+                                    <span class="badge ${r.status === 'confirmed' ? 'badge-success' : (r.status === 'sent' ? 'badge-warning' : 'badge-secondary')}">
+                                        ${r.status === 'confirmed' ? 'Подтверждена' : (r.status === 'sent' ? 'Отправлена' : r.status)}
+                                    </span>
+                                </td>
+                                <td>${r.agency_name || '-'}</td>
+                                <td>${r.created_at ? formatDate(r.created_at) : '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            const filtered = allRequests.filter(r => 
+                r.position.toLowerCase().includes(search) ||
+                (r.department && r.department.toLowerCase().includes(search))
+            );
+            displayRequests(filtered);
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
+        loadRequests();
+    </script>
+</body>
+</html>

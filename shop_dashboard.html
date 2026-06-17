@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заведующий магазином | Панель управления</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-bottom: 3px solid #4caf50;
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 1rem;
+            border-radius: 10px;
+        }
+        .time-input {
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid #c8e6c9;
+            border-radius: 4px;
+        }
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Заведующий</div>
+        <div class="nav-menu">
+            <a href="shop_dashboard.html" class="active">Главная</a>
+            <a href="shop_requests.html">Заявки</a>
+            <a href="shop_schedule.html">График работы</a>
+            <a href="shop_attendance.html">Подтверждение выхода</a>
+            <a href="shop_reconciliation.html">Акты сверки</a>
+            <a href="shop_reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Панель заведующего магазином</h1>
+        </div>
+        
+        <p>Магазин: <strong id="organizationName">Загрузка...</strong></p>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalRequests">0</div>
+                <div class="stat-label">Активных заявок</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="todayStaff">0</div>
+                <div class="stat-label">Персонала сегодня</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="pendingConfirm">0</div>
+                <div class="stat-label">Ожидают подтверждения</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Создать заявку на персонал</h2>
+            <form id="requestForm">
+                <div class="form-group">
+                    <label>Должность *</label>
+                    <select id="position" required>
+                        <option value="">Выберите должность</option>
+                        <option value="Охранник">Охранник</option>
+                        <option value="Грузчик">Грузчик</option>
+                        <option value="Уборщица">Уборщица</option>
+                        <option value="Кассир">Кассир</option>
+                        <option value="Продавец-консультант">Продавец-консультант</option>
+                        <option value="Кладовщик">Кладовщик</option>
+                        <option value="Разнорабочий">Разнорабочий</option>
+                        <option value="Мерчандайзер">Мерчандайзер</option>
+                        <option value="Повар">Повар</option>
+                        <option value="Пекарь">Пекарь</option>
+                        <option value="Водитель">Водитель</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Подразделение</label>
+                    <input type="text" id="department" placeholder="Например: Служба безопасности">
+                </div>
+                <div class="form-group">
+                    <label>Количество *</label>
+                    <input type="number" id="quantity" value="1" min="1" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Дата начала *</label>
+                        <input type="date" id="startDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Дата окончания</label>
+                        <input type="date" id="endDate">
+                        <small>Оставьте пустым для бессрочной заявки</small>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Категория персонала</label>
+                    <select id="category">
+                        <option value="">Выберите категорию</option>
+                        <option value="Рабочий персонал">Рабочий персонал</option>
+                        <option value="Офисный персонал">Офисный персонал</option>
+                        <option value="Руководители">Руководители</option>
+                        <option value="Специалисты">Специалисты</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Приоритет</label>
+                    <select id="priority">
+                        <option value="normal">Обычный</option>
+                        <option value="high">Высокий</option>
+                        <option value="urgent">Срочный</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Кадровое агентство *</label>
+                    <select id="agencyId" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Примечания</label>
+                    <textarea id="notes" rows="3" placeholder="Дополнительная информация..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Отправить заявку</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>График работы на сегодня</h2>
+            <div id="todaySchedule"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        
+        // Проверка авторизации
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+        
+        // Проверка роли
+        if (user.role !== 'shop_manager') {
+            const redirects = {
+                'admin': 'dashboard.html',
+                'security': 'security_dashboard.html',
+                'hr_specialist': 'hr_dashboard.html',
+                'agency': 'agency_dashboard.html'
+            };
+            window.location.href = redirects[user.role] || 'dashboard.html';
+        }
+        
+        // Проверка привязки к магазину
+        if (!user.organization_id) {
+            alert('Ваш аккаунт не привязан к магазину. Обратитесь к администратору.');
+            window.location.href = 'profile.html';
+        }
+
+        // Загрузка информации о магазине
+        async function loadOrganization() {
+            try {
+                const response = await fetch(`api/organizations.php?id=${user.organization_id}`);
+                const org = await response.json();
+                document.getElementById('organizationName').textContent = org.name || 'Магазин не указан';
+            } catch (error) {
+                document.getElementById('organizationName').textContent = 'Ошибка загрузки';
+            }
+        }
+
+        // Загрузка статистики
+        async function loadStats() {
+            try {
+                const response = await fetch(`api/staff_requests.php?organization_id=${user.organization_id}`);
+                const requests = await response.json();
+                document.getElementById('totalRequests').textContent = requests.filter(r => r.status === 'sent' || r.status === 'confirmed').length;
+
+                const today = new Date().toISOString().split('T')[0];
+                const scheduleRes = await fetch(`api/work_schedule.php?organization_id=${user.organization_id}&date=${today}`);
+                const schedules = await scheduleRes.json();
+                document.getElementById('todayStaff').textContent = schedules.length;
+                document.getElementById('pendingConfirm').textContent = schedules.filter(s => !s.actual_start).length;
+            } catch (error) {
+                console.error('Ошибка загрузки статистики:', error);
+            }
+        }
+
+        // Загрузка агентств для выбора
+        async function loadAgencies() {
+            try {
+                const res = await fetch('api/agencies.php?active=1');
+                const agencies = await res.json();
+                const select = document.getElementById('agencyId');
+                select.innerHTML = '<option value="">Выберите агентство</option>' + 
+                    agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            } catch (error) {
+                showError('Ошибка загрузки агентств');
+            }
+        }
+
+        // Создание заявки
+        document.getElementById('requestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const agencyId = document.getElementById('agencyId').value;
+            const position = document.getElementById('position').value;
+            const startDate = document.getElementById('startDate').value;
+            
+            if (!agencyId || !position || !startDate) {
+                showError('Заполните все обязательные поля');
+                return;
+            }
+            
+            const data = {
+                organization_id: user.organization_id,
+                agency_id: agencyId,
+                position: position,
+                department: document.getElementById('department').value,
+                category: document.getElementById('category').value,
+                quantity: document.getElementById('quantity').value,
+                priority: document.getElementById('priority').value,
+                start_date: startDate,
+                end_date: document.getElementById('endDate').value || null,
+                notes: document.getElementById('notes').value,
+                created_by: user.id
+            };
+            
+            try {
+                const response = await fetch('api/staff_requests.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showSuccess('Заявка отправлена');
+                    document.getElementById('requestForm').reset();
+                    document.getElementById('startDate').value = new Date().toISOString().split('T')[0];
+                    loadStats();
+                } else {
+                    showError(result.error || 'Ошибка отправки');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        });
+
+        // Загрузка графика на сегодня
+        async function loadTodaySchedule() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const response = await fetch(`api/work_schedule.php?organization_id=${user.organization_id}&date=${today}`);
+                const schedules = await response.json();
+                
+                const container = document.getElementById('todaySchedule');
+                if (schedules.length === 0) {
+                    container.innerHTML = '<div class="alert alert-info">Нет запланированных выходов на сегодня</div>';
+                    return;
+                }
+                
+                let html = '<div style="overflow-x: auto;"><table class="table"><thead><tr>';
+                html += '<th>Сотрудник</th>';
+                html += '<th>Должность</th>';
+                html += '<th>Агентство</th>';
+                html += '<th>План прихода</th>';
+                html += '<th>План ухода</th>';
+                html += '<th>Факт прихода</th>';
+                html += '<th>Факт ухода</th>';
+                html += '<th>Статус</th>';
+                html += '<th>Действия</th>';
+                html += '</tr></thead><tbody>';
+                
+                for (const s of schedules) {
+                    const staffName = s.staff_name || s.full_name || '-';
+                    const position = s.position || '-';
+                    const agencyName = s.agency_name || '-';
+                    const plannedStart = s.planned_start || '-';
+                    const plannedEnd = s.planned_end || '-';
+                    const actualStart = s.actual_start || '';
+                    const actualEnd = s.actual_end || '';
+                    const statusBadge = s.status === 'confirmed' ? 
+                        '<span class="badge badge-success">Отмечен</span>' : 
+                        '<span class="badge badge-warning">Ожидает</span>';
+                    
+                    html += '<tr>';
+                    html += '<td><strong>' + escapeHtml(staffName) + '</strong></td>';
+                    html += '<td>' + escapeHtml(position) + '</td>';
+                    html += '<td>' + escapeHtml(agencyName) + '</td>';
+                    html += '<td>' + plannedStart + '</td>';
+                    html += '<td>' + plannedEnd + '</td>';
+                    html += '<td><input type="time" id="start_' + s.id + '" value="' + actualStart + '" class="time-input"></td>';
+                    html += '<td><input type="time" id="end_' + s.id + '" value="' + actualEnd + '" class="time-input"></td>';
+                    html += '<td>' + statusBadge + '</td>';
+                    html += '<td><button class="btn btn-sm btn-success" onclick="confirmAttendance(' + s.id + ')">✓ Подтвердить</button></td>';
+                    html += '</tr>';
+                }
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } catch (error) {
+                document.getElementById('todaySchedule').innerHTML = '<div class="alert alert-danger">Ошибка загрузки графика</div>';
+            }
+        }
+
+        // Подтверждение прихода/ухода
+        window.confirmAttendance = async (id) => {
+            const actualStart = document.getElementById(`start_${id}`).value;
+            const actualEnd = document.getElementById(`end_${id}`).value;
+            
+            if (!actualStart) {
+                showError('Укажите время прихода');
+                return;
+            }
+            
+            try {
+                const response = await fetch('api/work_schedule.php', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: id,
+                        actual_start: actualStart,
+                        actual_end: actualEnd || null,
+                        status: 'confirmed',
+                        confirmed_by: user.id
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showSuccess('Данные сохранены');
+                    loadTodaySchedule();
+                    loadStats();
+                } else {
+                    showError(result.error || 'Ошибка сохранения');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        };
+
+        // Установка даты по умолчанию
+        document.getElementById('startDate').value = new Date().toISOString().split('T')[0];
+        
+        // Функции показа сообщений
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            if (successDiv) {
+                successDiv.textContent = message;
+                successDiv.style.display = 'block';
+                setTimeout(() => { successDiv.style.display = 'none'; }, 3000);
+            } else {
+                alert(message);
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                setTimeout(() => { errorDiv.style.display = 'none'; }, 3000);
+            } else {
+                alert(message);
+            }
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        });
+
+        loadOrganization();
+        loadStats();
+        loadAgencies();
+        loadTodaySchedule();
+        
+        setInterval(() => {
+            loadTodaySchedule();
+            loadStats();
+        }, 30000);
+    </script>
+</body>
+</html>

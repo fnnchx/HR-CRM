@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>График работы | Заведующий</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Заведующий</div>
+        <div class="nav-menu">
+            <a href="shop_dashboard.html">Главная</a>
+            <a href="shop_requests.html">Заявки</a>
+            <a href="shop_schedule.html" class="active">График работы</a>
+            <a href="shop_attendance.html">Подтверждение выхода</a>
+            <a href="shop_reconciliation.html">Акты сверки</a>
+            <a href="shop_reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>График работы внешнего персонала</h1>
+            <div>
+                <input type="date" id="datePicker">
+                <button class="btn btn-primary" onclick="loadSchedule()">Показать</button>
+                <button class="btn btn-secondary" onclick="loadWeekSchedule()">Текущая неделя</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div id="scheduleTable"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'shop_manager') window.location.href = 'login.html';
+
+        document.getElementById('datePicker').value = new Date().toISOString().split('T')[0];
+
+        async function loadSchedule() {
+            const date = document.getElementById('datePicker').value;
+            const res = await fetch(`api/work_schedule.php?organization_id=${user.organization_id}&date=${date}`);
+            const schedules = await res.json();
+            displaySchedule(schedules, date);
+        }
+
+        async function loadWeekSchedule() {
+            const dates = [];
+            for (let i = 0; i < 7; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() + i);
+                dates.push(d.toISOString().split('T')[0]);
+            }
+            let all = [];
+            for (const date of dates) {
+                const res = await fetch(`api/work_schedule.php?organization_id=${user.organization_id}&date=${date}`);
+                const sched = await res.json();
+                all = [...all, ...sched.map(s => ({ ...s, schedule_date: date }))];
+            }
+            displaySchedule(all, 'неделя');
+        }
+
+        function displaySchedule(schedules, title) {
+            const container = document.getElementById('scheduleTable');
+            if (schedules.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">Нет запланированных выходов</p>';
+                return;
+            }
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr><th>Дата</th><th>Сотрудник</th><th>Должность</th><th>Агентство</th><th>План прихода</th><th>План ухода</th><th>Факт прихода</th><th>Факт ухода</th><th>Статус</th></tr>
+                    </thead>
+                    <tbody>
+                        ${schedules.map(s => `
+                            <tr>
+                                <td>${s.schedule_date || title}</td>
+                                <td>${s.staff_name || s.full_name}</td>
+                                <td>${s.position || '-'}</td>
+                                <td>${s.agency_name || '-'}</td>
+                                <td>${s.planned_start || '-'}</td>
+                                <td>${s.planned_end || '-'}</td>
+                                <td>${s.actual_start || '-'}</td>
+                                <td>${s.actual_end || '-'}</td>
+                                <td><span class="badge ${s.status === 'confirmed' ? 'badge-success' : 'badge-warning'}">${s.status === 'confirmed' ? 'Отмечен' : 'Ожидает'}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+        loadSchedule();
+    </script>
+</body>
+</html>

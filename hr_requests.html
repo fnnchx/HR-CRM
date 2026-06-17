@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заявки на персонал | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="hr_dashboard.html">Главная</a>
+            <a href="hr_staff.html">Реестр персонала</a>
+            <a href="hr_requests.html" class="active">Заявки</a>
+            <a href="hr_protocols.html">Протоколы цен</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Заявки на внешний персонал</h1>
+            <button class="btn btn-success" onclick="window.location.href='shop_dashboard.html'">+ Создать заявку</button>
+        </div>
+
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+
+        <div class="card">
+            <div class="filters">
+                <select id="statusFilter">
+                    <option value="">Все статусы</option>
+                    <option value="draft">Черновики</option>
+                    <option value="sent">Отправлены</option>
+                    <option value="confirmed">Подтверждены</option>
+                    <option value="rejected">Отклонены</option>
+                    <option value="completed">Выполнены</option>
+                </select>
+                <select id="agencyFilter">
+                    <option value="">Все агентства</option>
+                </select>
+                <select id="organizationFilter">
+                    <option value="">Все магазины</option>
+                </select>
+                <button class="btn btn-primary" onclick="applyFilters()">Применить</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Сбросить</button>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Поиск по должности...">
+            </div>
+
+            <div id="requestsList"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        if (user.role !== 'hr_specialist' && user.role !== 'admin') {
+            window.location.href = 'dashboard.html';
+        }
+
+        let allRequests = [];
+        let agencies = [];
+        let organizations = [];
+
+        async function loadDictionaries() {
+            const agenciesRes = await fetch('api/agencies.php');
+            agencies = await agenciesRes.json();
+            const orgRes = await fetch('api/organizations.php');
+            organizations = await orgRes.json();
+            
+            const agencyFilter = document.getElementById('agencyFilter');
+            agencyFilter.innerHTML = '<option value="">Все агентства</option>' + 
+                agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            
+            const orgFilter = document.getElementById('organizationFilter');
+            orgFilter.innerHTML = '<option value="">Все магазины</option>' + 
+                organizations.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+        }
+
+        async function loadRequests() {
+            try {
+                const response = await fetch('api/staff_requests.php');
+                allRequests = await response.json();
+                displayRequests(allRequests);
+            } catch (error) {
+                showError('Ошибка загрузки заявок');
+            }
+        }
+
+        function editRequest(id) {
+            window.location.href = `hr_edit_request.html?id=${id}`;
+        }
+
+        function displayRequests(requests) {
+            const container = document.getElementById('requestsList');
+            
+            if (requests.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">Нет заявок</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>№ заявки</th>
+                            <th>Магазин</th>
+                            <th>Должность</th>
+                            <th>Кол-во</th>
+                            <th>Период</th>
+                            <th>Агентство</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${requests.map(r => `
+                            <tr>
+                                <td><strong>${r.request_number || 'б/н'}</strong></td>
+                                <td>${r.organization_name || '-'}</td>
+                                <td>${r.position}</td>
+                                <td>${r.quantity} чел.</td>
+                                <td>${r.start_date} - ${r.end_date || 'бессрочно'}</td>
+                                <td>${r.agency_name || '-'}</td>
+                                <td>
+                                    <span class="badge ${getStatusBadgeClass(r.status)}">
+                                        ${getStatusText(r.status)}
+                                    </span>
+                                </td>
+                                <td class="actions">
+                                    <button class="btn btn-sm btn-info" onclick="viewRequest(${r.id})">👁️</button>
+                                    ${r.status === 'sent' ? `
+                                        <button class="btn btn-sm btn-success" onclick="confirmRequest(${r.id})">✓ Подтвердить</button>
+                                        <button class="btn btn-sm btn-danger" onclick="rejectRequest(${r.id})">✗ Отклонить</button>
+                                    ` : ''}
+                                    ${r.status === 'confirmed' ? `
+                                        <button class="btn btn-sm btn-primary" onclick="assignStaff(${r.id})">👥 Назначить персонал</button>
+                                    ` : ''}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function getStatusBadgeClass(status) {
+            const classes = {
+                'draft': 'badge-secondary',
+                'sent': 'badge-warning',
+                'confirmed': 'badge-success',
+                'rejected': 'badge-danger',
+                'completed': 'badge-info'
+            };
+            return classes[status] || 'badge-secondary';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'draft': 'Черновик',
+                'sent': 'Отправлена',
+                'confirmed': 'Подтверждена',
+                'rejected': 'Отклонена',
+                'completed': 'Выполнена'
+            };
+            return texts[status] || status;
+        }
+
+        function viewRequest(id) {
+            const request = allRequests.find(r => r.id == id);
+            if (request) {
+                alert(`
+                    Заявка №${request.request_number || 'б/н'}
+                    Магазин: ${request.organization_name || '-'}
+                    Агентство: ${request.agency_name || '-'}
+                    Должность: ${request.position}
+                    Количество: ${request.quantity}
+                    Период: ${request.start_date} - ${request.end_date || 'бессрочно'}
+                    Статус: ${getStatusText(request.status)}
+                    ${request.notes ? 'Примечания: ' + request.notes : ''}
+                `);
+            }
+        }
+
+        async function confirmRequest(id) {
+            if (!confirm('Подтвердить заявку?')) return;
+            
+            try {
+                const response = await fetch('api/staff_requests.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id, status: 'confirmed' })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showSuccess('Заявка подтверждена');
+                    loadRequests();
+                } else {
+                    showError(result.error || 'Ошибка');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+
+        async function rejectRequest(id) {
+            const reason = prompt('Укажите причину отклонения:');
+            if (reason === null) return;
+            
+            try {
+                const response = await fetch('api/staff_requests.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id, status: 'rejected', rejected_reason: reason })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showSuccess('Заявка отклонена');
+                    loadRequests();
+                } else {
+                    showError(result.error || 'Ошибка');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+
+        function assignStaff(id) {
+            window.location.href = `hr_assign_staff.html?request_id=${id}`;
+        }
+
+        function applyFilters() {
+            const status = document.getElementById('statusFilter').value;
+            const agencyId = document.getElementById('agencyFilter').value;
+            const orgId = document.getElementById('organizationFilter').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            
+            let filtered = [...allRequests];
+            
+            if (status) filtered = filtered.filter(r => r.status === status);
+            if (agencyId) filtered = filtered.filter(r => r.agency_id == agencyId);
+            if (orgId) filtered = filtered.filter(r => r.organization_id == orgId);
+            if (search) {
+                filtered = filtered.filter(r => 
+                    r.position.toLowerCase().includes(search) ||
+                    (r.department && r.department.toLowerCase().includes(search))
+                );
+            }
+            
+            displayRequests(filtered);
+        }
+
+function displayRequests(requests) {
+    const container = document.getElementById('requestsList');
+    
+    if (requests.length === 0) {
+        container.innerHTML = '<p class="alert alert-info">Нет заявок</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>№ заявки</th>
+                    <th>Магазин</th>
+                    <th>Должность</th>
+                    <th>Кол-во</th>
+                    <th>Период</th>
+                    <th>Агентство</th>
+                    <th>Доступность</th>
+                    <th>Статус</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${requests.map(r => `
+                    <tr>
+                        <td><strong>${r.request_number || 'б/н'}</strong></td>
+                        <td>${r.organization_name || '-'}</td>
+                        <td>${r.position}</td>
+                        <td>${r.quantity} чел.</td>
+                        <td>${r.start_date} - ${r.end_date || 'бессрочно'}</td>
+                        <td>${r.agency_name || '-'}</td>
+                        <td>${getAvailabilityBadge(r)}</td>
+                        <td><span class="badge ${getStatusBadgeClass(r.status)}">${getStatusText(r.status)}</span></td>
+                        <td class="actions">
+                            <button class="btn btn-sm btn-info" onclick="viewRequest(${r.id})">👁️</button>
+                            ${r.status === 'sent' ? `
+                                <button class="btn btn-sm btn-success" onclick="confirmRequest(${r.id})">✓ Подтвердить</button>
+                                <button class="btn btn-sm btn-danger" onclick="rejectRequest(${r.id})">✗ Отклонить</button>
+                            ` : ''}
+                            ${r.status === 'confirmed' ? `
+                                <button class="btn btn-sm btn-primary" onclick="assignStaff(${r.id})">👥 Назначить</button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function getAvailabilityBadge(request) {
+   
+    const stats = request.staff_stats || { total: 0, available: 0 };
+    
+    if (stats.total === 0) {
+        return '<span class="badge badge-danger">Нет сотрудников</span>';
+    }
+    if (stats.available < request.quantity) {
+        return `<span class="badge badge-warning">${stats.available} из ${stats.total}</span>`;
+    }
+    return `<span class="badge badge-success">${stats.available} доступно</span>`;
+}
+
+        function resetFilters() {
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('agencyFilter').value = '';
+            document.getElementById('organizationFilter').value = '';
+            document.getElementById('searchInput').value = '';
+            displayRequests(allRequests);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
+        loadDictionaries();
+        loadRequests();
+    </script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Печать договора | HR CRM</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            margin: 2cm;
+            line-height: 1.5;
+        }
+        .contract-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .contract-number {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .contract-date {
+            margin-bottom: 20px;
+        }
+        .contract-content {
+            margin: 30px 0;
+            white-space: pre-line;
+        }
+        .contract-services {
+            margin: 30px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #f0f0f0;
+        }
+        .total {
+            font-weight: bold;
+            text-align: right;
+            margin-top: 20px;
+        }
+        .signatures {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .signature-line {
+            width: 200px;
+            border-bottom: 1px solid #000;
+            margin-top: 30px;
+        }
+        @media print {
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px; text-align: center;">
+        <button onclick="window.print()">🖨️ Печать</button>
+        <button onclick="window.close()">✖️ Закрыть</button>
+    </div>
+    
+    <div id="contractPrint"></div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const contractId = params.get('id');
+        
+        if (!contractId) {
+            document.body.innerHTML = '<h2>Договор не найден</h2>';
+        }
+        
+        async function loadContract() {
+            try {
+                // Загружаем договор
+                const contractsRes = await fetch('api/contracts.php');
+                const contracts = await contractsRes.json();
+                const contract = contracts.find(c => c.id == contractId);
+                
+                if (!contract) {
+                    document.getElementById('contractPrint').innerHTML = '<h2>Договор не найден</h2>';
+                    return;
+                }
+                
+                // Загружаем агентство
+                const agenciesRes = await fetch('api/agencies.php');
+                const agencies = await agenciesRes.json();
+                const agency = agencies.find(a => a.id == contract.agency_id);
+                
+                // Загружаем реквизиты
+                const reqRes = await fetch(`api/requisites.php?agency_id=${contract.agency_id}`);
+                const requisites = await reqRes.json();
+                const currentReqs = requisites.find(r => !r.valid_to) || requisites[0] || {};
+                
+                // Загружаем услуги
+                const servicesRes = await fetch(`api/contract-services.php?contract_id=${contractId}`);
+                const services = await servicesRes.json();
+                
+                // Формируем HTML для печати
+                let html = `
+                    <div class="contract-header">
+                        <div class="contract-number">ДОГОВОР № ${contract.number || 'б/н'}</div>
+                        <div class="contract-date">г. Минск, ${contract.signing_date || '___ ____________ 2026 г.'}</div>
+                    </div>
+                    
+                    <div class="contract-content">
+                        <p><strong>Исполнитель:</strong> Кадровое агентство «${agency?.name || ''}»</p>
+                        <p><strong>Юридический адрес:</strong> ${currentReqs.legal_address || '____________________'}</p>
+                        <p><strong>УНП:</strong> ${currentReqs.unp || '____________________'}</p>
+                        <p><strong>ОКПО:</strong> ${currentReqs.okpo || '____________________'}</p>
+                        <p><strong>Расчетный счет:</strong> ${currentReqs.account_number || '____________________'}</p>
+                        <p><strong>Банк:</strong> ${currentReqs.bank_name || '____________________'}</p>
+                        <p><strong>Директор:</strong> ${currentReqs.director_name || '____________________'}</p>
+                    </div>
+                    
+                    <div class="contract-services">
+                        <h3>1. ПРЕДМЕТ ДОГОВОРА</h3>
+                        <p>1.1. Исполнитель обязуется оказать, а Заказчик оплатить следующие услуги:</p>
+                `;
+                
+                if (services.length > 0) {
+                    html += `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>№</th>
+                                    <th>Наименование услуги</th>
+                                    <th>Цена, Br</th>
+                                    <th>Количество</th>
+                                    <th>Сумма, Br</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    let total = 0;
+                    services.forEach((s, index) => {
+                        const sum = s.price * s.quantity;
+                        total += sum;
+                        html += `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${s.service_name || ''}</td>
+                                <td>${Number(s.price).toFixed(2)}</td>
+                                <td>${s.quantity}</td>
+                                <td>${sum.toFixed(2)}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                            </tbody>
+                        </table>
+                        <p class="total"><strong>ИТОГО: ${total.toFixed(2)} Br</strong></p>
+                    `;
+                } else {
+                    html += '<p>____________________</p>';
+                }
+                
+                html += `
+                    </div>
+                    
+                    <div class="contract-content">
+                        <h3>2. СТОИМОСТЬ И ПОРЯДОК РАСЧЕТОВ</h3>
+                        <p>2.1. Общая стоимость услуг составляет ${Number(contract.total_amount || 0).toFixed(2)} Br.</p>
+                        <p>2.2. Оплата производится в течение 5 банковских дней после подписания акта выполненных работ.</p>
+                        
+                        <h3>3. СРОК ДЕЙСТВИЯ ДОГОВОРА</h3>
+                        <p>3.1. Договор вступает в силу с момента подписания и действует до ${contract.expiration_date || '31 декабря 2026 года'}.</p>
+                        
+                        <h3>4. ОСОБЫЕ УСЛОВИЯ</h3>
+                        <p>${contract.terms || '____________________'}</p>
+                    </div>
+                    
+                    <div class="signatures">
+                        <div>
+                            <p><strong>Исполнитель:</strong></p>
+                            <p>____________________</p>
+                            <p>М.П.</p>
+                        </div>
+                        <div>
+                            <p><strong>Заказчик:</strong></p>
+                            <p>____________________</p>
+                            <p>М.П.</p>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('contractPrint').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('contractPrint').innerHTML = '<h2>Ошибка загрузки данных</h2>';
+                console.error(error);
+            }
+        }
+        
+        loadContract();
+    </script>
+</body>
+</html>

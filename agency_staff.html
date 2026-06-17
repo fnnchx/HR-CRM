@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Наш персонал | Кадровое агентство</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Агентство</div>
+        <div class="nav-menu">
+            <a href="agency_dashboard.html">Главная</a>
+            <a href="agency_requests.html">Заявки</a>
+            <a href="agency_contracts.html">Договоры</a>
+            <a href="agency_staff.html" class="active">Наш персонал</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Наш внешний персонал</h1>
+            <div class="stats-badge">
+                <span class="badge badge-success" id="activeCount">0</span> активных
+                <span class="badge badge-secondary" id="inactiveCount">0</span> неактивных
+            </div>
+        </div>
+
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+
+        <div class="card">
+            <div class="filters">
+                <select id="statusFilter">
+                    <option value="all">Все сотрудники</option>
+                    <option value="1">Активные</option>
+                    <option value="0">Неактивные</option>
+                </select>
+                
+                <select id="organizationFilter">
+                    <option value="">Все организации</option>
+                </select>
+                
+                <button class="btn btn-primary" onclick="applyFilters()">🔍 Применить</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">🔄 Сбросить</button>
+                <button class="btn btn-info" onclick="exportToCSV()">📊 Экспорт CSV</button>
+            </div>
+            
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Поиск по ФИО, должности, подразделению...">
+            </div>
+            
+            <div id="staffList"></div>
+        </div>
+
+        <div id="staffModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+             background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); 
+             z-index: 1000; width: 500px; max-width: 90%; max-height: 80%; overflow-y: auto;">
+            <h3>Карточка сотрудника</h3>
+            <div id="staffDetails"></div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeStaffModal()">Закрыть</button>
+            </div>
+        </div>
+        <div id="modalOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999;"></div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+        if (user.role !== 'agency') {
+            const redirects = {
+                'admin': 'dashboard.html',
+                'shop_manager': 'shop_dashboard.html',
+                'security': 'security_dashboard.html',
+                'hr_specialist': 'hr_dashboard.html'
+            };
+            window.location.href = redirects[user.role] || 'dashboard.html';
+        }
+
+        let allStaff = [];
+        let organizations = [];
+
+        async function loadOrganizations() {
+            try {
+                const response = await fetch('api/organizations.php?active=1');
+                organizations = await response.json();
+                const filter = document.getElementById('organizationFilter');
+                filter.innerHTML = '<option value="">Все организации</option>' + 
+                    organizations.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки организаций:', error);
+            }
+        }
+
+        async function loadStaff() {
+            try {
+                const response = await fetch(`api/external_staff.php?agency_id=${user.agency_id}`);
+                allStaff = await response.json();
+                updateStats();
+                displayStaff(allStaff);
+            } catch (error) {
+                showError('Ошибка загрузки данных');
+            }
+        }
+
+        function updateStats() {
+            const active = allStaff.filter(s => s.is_active == 1).length;
+            const inactive = allStaff.filter(s => s.is_active == 0).length;
+            document.getElementById('activeCount').textContent = active;
+            document.getElementById('inactiveCount').textContent = inactive;
+        }
+
+        function displayStaff(staff) {
+            const container = document.getElementById('staffList');
+            
+            if (staff.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">👥 Нет сотрудников</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Таб. №</th>
+                            <th>ФИО</th>
+                            <th>Должность</th>
+                            <th>Подразделение</th>
+                            <th>Организация</th>
+                            <th>Телефон</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${staff.map(s => `
+                            <tr>
+                                <td>${escapeHtml(s.staff_number) || '-'}</td>
+                                <td><strong>${escapeHtml(s.full_name)}</strong></td>
+                                <td>${escapeHtml(s.position) || '-'}</td>
+                                <td>${escapeHtml(s.department) || '-'}</td>
+                                <td>${escapeHtml(s.organization_name) || '-'}</td>
+                                <td>${formatPhone(s.phone) || '-'}</td>
+                                <td>
+                                    <span class="badge ${s.is_active ? 'badge-success' : 'badge-secondary'}">
+                                        ${s.is_active ? '🟢 Активен' : '⚫ Неактивен'}
+                                    </span>
+                                </td>
+                                <td class="actions">
+                                    <button class="btn btn-sm btn-info" onclick="viewStaff(${s.id})">👁️</button>
+                                 </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        async function viewStaff(id) {
+            const staff = allStaff.find(s => s.id == id);
+            if (!staff) return;
+            
+            const modalContent = `
+                <table class="info-table">
+                    <tr><th>Табельный номер:</th><td>${escapeHtml(staff.staff_number) || '-'}</td></tr>
+                    <tr><th>ФИО:</th><td><strong>${escapeHtml(staff.full_name)}</strong></td></tr>
+                    <tr><th>Должность:</th><td>${escapeHtml(staff.position) || '-'}</td></tr>
+                    <tr><th>Подразделение:</th><td>${escapeHtml(staff.department) || '-'}</td></tr>
+                    <tr><th>Категория:</th><td>${escapeHtml(staff.category) || '-'}</td></tr>
+                    <tr><th>Организация:</th><td>${escapeHtml(staff.organization_name) || '-'}</td></tr>
+                    <tr><th>Телефон:</th><td>${formatPhone(staff.phone) || '-'}</td></tr>
+                    <tr><th>Email:</th><td>${escapeHtml(staff.email) || '-'}</td></tr>
+                    <tr><th>Дата рождения:</th><td>${staff.birth_date || '-'}</td></tr>
+                    <tr><th>Образование:</th><td>${escapeHtml(staff.education) || '-'}</td></tr>
+                    <tr><th>Дата найма:</th><td>${staff.hire_date || '-'}</td></tr>
+                    <tr><th>Статус:</th><td><span class="badge ${staff.is_active ? 'badge-success' : 'badge-secondary'}">${staff.is_active ? 'Активен' : 'Неактивен'}</span></td></tr>
+                    ${staff.notes ? `<tr><th>Примечания:</th><td>${escapeHtml(staff.notes)}</td></tr>` : ''}
+                </table>
+            `;
+            
+            document.getElementById('staffDetails').innerHTML = modalContent;
+            document.getElementById('staffModal').style.display = 'block';
+            document.getElementById('modalOverlay').style.display = 'block';
+        }
+
+        function closeStaffModal() {
+            document.getElementById('staffModal').style.display = 'none';
+            document.getElementById('modalOverlay').style.display = 'none';
+        }
+
+        function applyFilters() {
+            const status = document.getElementById('statusFilter').value;
+            const orgId = document.getElementById('organizationFilter').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            
+            let filtered = [...allStaff];
+            
+            if (status !== 'all') {
+                filtered = filtered.filter(s => s.is_active == status);
+            }
+            if (orgId) {
+                filtered = filtered.filter(s => s.organization_id == orgId);
+            }
+            if (search) {
+                filtered = filtered.filter(s => 
+                    (s.full_name && s.full_name.toLowerCase().includes(search)) ||
+                    (s.position && s.position.toLowerCase().includes(search)) ||
+                    (s.department && s.department.toLowerCase().includes(search)) ||
+                    (s.staff_number && s.staff_number.toLowerCase().includes(search))
+                );
+            }
+            
+            displayStaff(filtered);
+        }
+
+        function resetFilters() {
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('organizationFilter').value = '';
+            document.getElementById('searchInput').value = '';
+            displayStaff(allStaff);
+        }
+
+        function exportToCSV() {
+            const status = document.getElementById('statusFilter').value;
+            const filtered = status !== 'all' ? allStaff.filter(s => s.is_active == status) : allStaff;
+            
+            if (filtered.length === 0) {
+                showError('Нет данных для экспорта');
+                return;
+            }
+            
+            let csv = "Таб.№;ФИО;Должность;Подразделение;Организация;Телефон;Email;Статус;Дата найма\n";
+            filtered.forEach(s => {
+                csv += `${s.staff_number || ''};${s.full_name};${s.position || ''};${s.department || ''};${s.organization_name || ''};${s.phone || ''};${s.email || ''};${s.is_active ? 'Активен' : 'Неактивен'};${s.hire_date || ''}\n`;
+            });
+            
+            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `agency_staff_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showSuccess('Экспорт выполнен');
+        }
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
+        loadOrganizations();
+        loadStaff();
+        setInterval(loadStaff, 60000);
+    </script>
+
+    <style>
+        .stats-badge {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 0.5rem 1rem;
+            border-radius: 30px;
+        }
+        .stats-badge .badge {
+            font-size: 1.1rem;
+            padding: 0.3rem 0.8rem;
+        }
+    </style>
+</body>
+</html>

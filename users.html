@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление пользователями | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html">Агентства</a>
+            <a href="contracts.html">Договоры</a>
+            <a href="reports.html">Отчеты</a>
+            <a href="users.html" class="active">Пользователи</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Управление пользователями</h1>
+            <button class="btn btn-success" onclick="showAddUserForm()">+ Добавить пользователя</button>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+        
+        <div id="userForm" class="card" style="display: none;">
+            <h3 id="formTitle">Добавление пользователя</h3>
+            <form id="userFormElement" onsubmit="event.preventDefault(); saveUser();">
+                <input type="hidden" id="userId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="userLogin">Логин *</label>
+                        <input type="text" id="userLogin" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userEmail">Email *</label>
+                        <input type="email" id="userEmail" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="userFirstName">Имя</label>
+                        <input type="text" id="userFirstName">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userLastName">Фамилия</label>
+                        <input type="text" id="userLastName">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="userPhone">Телефон</label>
+                        <input type="text" id="userPhone">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userRole">Роль</label>
+                        <select id="userRole">
+                            <option value="user">Пользователь</option>
+                            <option value="manager">Менеджер</option>
+                            <option value="admin">Администратор</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userPassword">Пароль *</label>
+                    <input type="password" id="userPassword" required>
+                    <small class="form-text">Минимум 6 символов</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox">
+                        <input type="checkbox" id="userActive" checked> Активен
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-success">Сохранить</button>
+                <button type="button" class="btn btn-secondary" onclick="hideUserForm()">Отмена</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Логин</th>
+                        <th>Email</th>
+                        <th>Имя</th>
+                        <th>Роль</th>
+                        <th>Статус</th>
+                        <th>Дата регистрации</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="usersList">
+                    <tr><td colspan="8" class="text-center">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        
+        // Проверка прав администратора
+        if (user.role !== 'admin') {
+            window.location.href = 'dashboard.html';
+        }
+        
+        async function loadUsers() {
+            try {
+                const response = await fetch('api/users.php');
+                const users = await response.json();
+                
+                const tbody = document.getElementById('usersList');
+                
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Нет данных</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = users.map(u => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td><strong>${escapeHtml(u.login)}</strong></td>
+                        <td>${escapeHtml(u.email)}</td>
+                        <td>${escapeHtml(u.first_name || '')} ${escapeHtml(u.last_name || '')}</td>
+                        <td><span class="badge ${u.role === 'admin' ? 'badge-danger' : 'badge-info'}">${u.role}</span></td>
+                        <td>
+                            <span class="badge ${u.is_active ? 'badge-success' : 'badge-secondary'}">
+                                ${u.is_active ? 'Активен' : 'Заблокирован'}
+                            </span>
+                        </td>
+                        <td>${formatDate(u.created_at)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="editUser(${u.id})">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">🗑️</button>
+                        </td>
+                    </tr>
+                `).join('');
+                
+            } catch (error) {
+                showError('Ошибка загрузки пользователей');
+            }
+        }
+        
+        function showAddUserForm() {
+            document.getElementById('formTitle').textContent = 'Добавление пользователя';
+            document.getElementById('userId').value = '';
+            document.getElementById('userLogin').value = '';
+            document.getElementById('userEmail').value = '';
+            document.getElementById('userFirstName').value = '';
+            document.getElementById('userLastName').value = '';
+            document.getElementById('userPhone').value = '';
+            document.getElementById('userRole').value = 'user';
+            document.getElementById('userPassword').value = '';
+            document.getElementById('userActive').checked = true;
+            document.getElementById('userPassword').required = true;
+            document.getElementById('userForm').style.display = 'block';
+        }
+        
+        async function editUser(id) {
+            try {
+                const response = await fetch('api/users.php');
+                const users = await response.json();
+                const userData = users.find(u => u.id == id);
+                
+                if (userData) {
+                    document.getElementById('formTitle').textContent = 'Редактирование пользователя';
+                    document.getElementById('userId').value = userData.id;
+                    document.getElementById('userLogin').value = userData.login;
+                    document.getElementById('userEmail').value = userData.email;
+                    document.getElementById('userFirstName').value = userData.first_name || '';
+                    document.getElementById('userLastName').value = userData.last_name || '';
+                    document.getElementById('userPhone').value = userData.phone || '';
+                    document.getElementById('userRole').value = userData.role || 'user';
+                    document.getElementById('userPassword').required = false;
+                    document.getElementById('userActive').checked = userData.is_active == 1;
+                    document.getElementById('userForm').style.display = 'block';
+                }
+            } catch (error) {
+                showError('Ошибка загрузки данных');
+            }
+        }
+        
+        async function saveUser() {
+            const id = document.getElementById('userId').value;
+            const data = {
+                id: id || undefined,
+                login: document.getElementById('userLogin').value,
+                email: document.getElementById('userEmail').value,
+                password: document.getElementById('userPassword').value,
+                first_name: document.getElementById('userFirstName').value,
+                last_name: document.getElementById('userLastName').value,
+                phone: document.getElementById('userPhone').value,
+                role: document.getElementById('userRole').value,
+                is_active: document.getElementById('userActive').checked ? 1 : 0
+            };
+            
+            if (!data.login || !data.email) {
+                showError('Заполните все обязательные поля');
+                return;
+            }
+            
+            if (!id && (!data.password || data.password.length < 6)) {
+                showError('Пароль должен быть не менее 6 символов');
+                return;
+            }
+            
+            const method = id ? 'PUT' : 'POST';
+            
+            try {
+                const response = await fetch('api/users.php', {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(id ? 'Пользователь обновлен' : 'Пользователь добавлен');
+                    hideUserForm();
+                    loadUsers();
+                } else {
+                    showError(result.error || 'Ошибка сохранения');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+        
+        async function deleteUser(id) {
+            if (!confirm('Вы уверены, что хотите удалить пользователя?')) return;
+            
+            try {
+                const response = await fetch(`api/users.php?id=${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Пользователь удален');
+                    loadUsers();
+                } else {
+                    showError(result.error || 'Ошибка удаления');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+        
+        function hideUserForm() {
+            document.getElementById('userForm').style.display = 'none';
+        }
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+        
+        loadUsers();
+    </script>
+</body>
+</html>

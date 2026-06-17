@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заявки на персонал | Заведующий</title>
+    <link rel="stylesheet" href="css/style.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Заведующий</div>
+        <div class="nav-menu">
+            <a href="shop_dashboard.html">Главная</a>
+            <a href="shop_requests.html" class="active">Заявки</a>
+            <a href="shop_schedule.html">График работы</a>
+            <a href="shop_attendance.html">Подтверждение выхода</a>
+            <a href="shop_reconciliation.html">Акты сверки</a>
+            <a href="shop_reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Заявки на внешний персонал</h1>
+            <button class="btn btn-success" onclick="showRequestForm()">+ Создать заявку</button>
+        </div>
+
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+
+        <!-- Форма создания заявки -->
+        <div id="requestForm" class="card" style="display: none;">
+            <h3 id="formTitle">Создание заявки</h3>
+            <form onsubmit="event.preventDefault(); saveRequest();">
+                <div class="form-group">
+                    <label>Должность *</label>
+                    <input type="text" id="position" required>
+                </div>
+                <div class="form-group">
+                    <label>Подразделение</label>
+                    <input type="text" id="department">
+                </div>
+                <div class="form-group">
+                    <label>Категория персонала</label>
+                    <select id="category">
+                        <option value="">Выберите категорию</option>
+                        <option value="Рабочий персонал">Рабочий персонал</option>
+                        <option value="Офисный персонал">Офисный персонал</option>
+                        <option value="Руководители">Руководители</option>
+                        <option value="Специалисты">Специалисты</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Количество *</label>
+                        <input type="number" id="quantity" value="1" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Приоритет</label>
+                        <select id="priority">
+                            <option value="normal">Обычный</option>
+                            <option value="high">Высокий</option>
+                            <option value="urgent">Срочный</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Дата начала *</label>
+                        <input type="date" id="startDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Дата окончания</label>
+                        <input type="date" id="endDate">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Кадровое агентство *</label>
+                    <select id="agencyId" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Примечания</label>
+                    <textarea id="notes" rows="3"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Отправить заявку</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideRequestForm()">Отмена</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="card">
+            <div class="filters">
+                <select id="statusFilter">
+                    <option value="">Все статусы</option>
+                    <option value="draft">Черновики</option>
+                    <option value="sent">Отправлены</option>
+                    <option value="confirmed">Подтверждены</option>
+                    <option value="rejected">Отклонены</option>
+                    <option value="completed">Выполнены</option>
+                </select>
+                <select id="agencyFilter">
+                    <option value="">Все агентства</option>
+                </select>
+                <button class="btn btn-primary" onclick="applyFilters()">Применить</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Сбросить</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Поиск по должности...">
+            </div>
+            <div id="requestsList"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'shop_manager') window.location.href = 'login.html';
+
+        let allRequests = [];
+        let agencies = [];
+
+        async function loadAgencies() {
+            const res = await fetch('api/agencies.php?active=1');
+            agencies = await res.json();
+            const select = document.getElementById('agencyId');
+            const filter = document.getElementById('agencyFilter');
+            select.innerHTML = '<option value="">Выберите агентство</option>' + 
+                agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            filter.innerHTML = '<option value="">Все агентства</option>' + 
+                agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+        }
+
+        async function loadRequests() {
+            const res = await fetch(`api/staff_requests.php?organization_id=${user.organization_id}`);
+            allRequests = await res.json();
+            displayRequests(allRequests);
+        }
+
+        function displayRequests(requests) {
+            const container = document.getElementById('requestsList');
+            if (requests.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">Нет заявок</p>';
+                return;
+            }
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr><th>№</th><th>Должность</th><th>Кол-во</th><th>Период</th><th>Агентство</th><th>Статус</th><th>Действия</th></tr>
+                    </thead>
+                    <tbody>
+                        ${requests.map(r => `
+                            <tr>
+                                <td>${r.request_number || 'б/н'}</td>
+                                <td>${r.position}</td>
+                                <td>${r.quantity} чел.</td>
+                                <td>${r.start_date} - ${r.end_date || 'бессрочно'}</td>
+                                <td>${r.agency_name || '-'}</td>
+                                <td><span class="badge ${getStatusBadge(r.status)}">${getStatusText(r.status)}</span></td>
+                                <td class="actions">
+                                    <button class="btn btn-sm btn-info" onclick="viewRequest(${r.id})">👁️</button>
+                                    ${r.status === 'sent' ? `<button class="btn btn-sm btn-danger" onclick="cancelRequest(${r.id})">✗ Отменить</button>` : ''}
+                                    ${r.status === 'confirmed' ? `<button class="btn btn-sm btn-success" onclick="viewSchedule(${r.id})">📅 График</button>` : ''}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'draft': 'badge-secondary',
+                'sent': 'badge-warning',
+                'confirmed': 'badge-success',
+                'rejected': 'badge-danger',
+                'completed': 'badge-info'
+            };
+            return badges[status] || 'badge-secondary';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'draft': 'Черновик',
+                'sent': 'Отправлена',
+                'confirmed': 'Подтверждена',
+                'rejected': 'Отклонена',
+                'completed': 'Выполнена'
+            };
+            return texts[status] || status;
+        }
+
+        function showRequestForm() {
+            document.getElementById('requestForm').style.display = 'block';
+            document.getElementById('startDate').value = new Date().toISOString().split('T')[0];
+        }
+
+        function hideRequestForm() {
+            document.getElementById('requestForm').style.display = 'none';
+        }
+
+        async function saveRequest() {
+            const data = {
+                organization_id: user.organization_id,
+                agency_id: document.getElementById('agencyId').value,
+                position: document.getElementById('position').value,
+                department: document.getElementById('department').value,
+                category: document.getElementById('category').value,
+                quantity: document.getElementById('quantity').value,
+                priority: document.getElementById('priority').value,
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value || null,
+                notes: document.getElementById('notes').value,
+                created_by: user.id
+            };
+            if (!data.agency_id || !data.position || !data.start_date) {
+                showError('Заполните обязательные поля');
+                return;
+            }
+            const res = await fetch('api/staff_requests.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await res.json();
+            if (result.success) {
+                showSuccess('Заявка отправлена');
+                hideRequestForm();
+                loadRequests();
+                document.getElementById('requestForm').reset();
+            } else {
+                showError(result.error || 'Ошибка');
+            }
+        }
+
+        function viewRequest(id) {
+            const req = allRequests.find(r => r.id == id);
+            if (req) {
+                alert(`Заявка №${req.request_number || 'б/н'}\nДолжность: ${req.position}\nКоличество: ${req.quantity}\nПериод: ${req.start_date} - ${req.end_date || 'бессрочно'}\nСтатус: ${getStatusText(req.status)}\n${req.notes ? 'Примечания: ' + req.notes : ''}`);
+            }
+        }
+
+        function viewSchedule(id) {
+            window.location.href = `shop_schedule.html?request_id=${id}`;
+        }
+
+        async function cancelRequest(id) {
+            if (!confirm('Отменить заявку?')) return;
+            await fetch('api/staff_requests.php', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status: 'cancelled' })
+            });
+            showSuccess('Заявка отменена');
+            loadRequests();
+        }
+
+        function applyFilters() {
+            const status = document.getElementById('statusFilter').value;
+            const agencyId = document.getElementById('agencyFilter').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = [...allRequests];
+            if (status) filtered = filtered.filter(r => r.status === status);
+            if (agencyId) filtered = filtered.filter(r => r.agency_id == agencyId);
+            if (search) filtered = filtered.filter(r => r.position.toLowerCase().includes(search));
+            displayRequests(filtered);
+        }
+
+        function resetFilters() {
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('agencyFilter').value = '';
+            document.getElementById('searchInput').value = '';
+            displayRequests(allRequests);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('logoutBtn').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+        loadAgencies();
+        loadRequests();
+    </script>
+</body>
+</html>

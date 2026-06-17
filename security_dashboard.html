@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Охрана | Панель управления</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-bottom: 3px solid #4caf50;
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success {
+            background: #c8e6c9;
+            color: #1b5e20;
+        }
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 1rem;
+            border-radius: 10px;
+        }
+        .time-input {
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid #c8e6c9;
+            border-radius: 4px;
+        }
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.8rem;
+        }
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            z-index: 1000;
+            width: 400px;
+            max-width: 90%;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-weight: 600;
+            color: #1b5e20;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #c8e6c9;
+            border-radius: 6px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: #2e7d32;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Охрана</div>
+        <div class="nav-menu">
+            <a href="security_dashboard.html" class="active">Главная</a>
+            <a href="security_schedule.html">График работы</a>
+            <a href="security_attendance.html">Отметка прихода/ухода</a>
+            <a href="security_requests.html">Заявки</a>
+            <a href="security_reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Панель специалиста охраны</h1>
+        </div>
+        
+        <p>Магазин: <strong id="organizationName">Загрузка...</strong></p>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="todayStaff">0</div>
+                <div class="stat-label">Персонала сегодня</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="pendingCheck">0</div>
+                <div class="stat-label">Ожидают отметки</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="lateStaff">0</div>
+                <div class="stat-label">Опоздавшие</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Сегодняшний график</h2>
+            <div id="todaySchedule"></div>
+        </div>
+
+        <div class="card">
+            <h2>Быстрая отметка</h2>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn btn-primary" onclick="quickMarkAll()">✓ Отметить всех присутствующих</button>
+                <button class="btn btn-secondary" onclick="refreshData()">🔄 Обновить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        
+        // Проверка авторизации
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+        
+        // Проверка роли
+        if (user.role !== 'security') {
+            const redirects = {
+                'admin': 'dashboard.html',
+                'shop_manager': 'shop_dashboard.html',
+                'hr_specialist': 'hr_dashboard.html',
+                'agency': 'agency_dashboard.html'
+            };
+            window.location.href = redirects[user.role] || 'dashboard.html';
+        }
+        
+        // Проверка привязки к магазину
+        if (!user.organization_id) {
+            alert('Ваш аккаунт не привязан к магазину. Обратитесь к администратору.');
+            window.location.href = 'profile.html';
+        }
+
+        let currentSchedules = [];
+
+        // Загрузка информации о магазине
+        async function loadOrganization() {
+            try {
+                const response = await fetch(`api/organizations.php?id=${user.organization_id}`);
+                const org = await response.json();
+                document.getElementById('organizationName').textContent = org.name || 'Магазин не указан';
+            } catch (error) {
+                document.getElementById('organizationName').textContent = 'Ошибка загрузки';
+            }
+        }
+
+        // Загрузка статистики
+        async function loadStats() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const response = await fetch(`api/work_schedule.php?organization_id=${user.organization_id}&date=${today}`);
+                const schedules = await response.json();
+                currentSchedules = schedules;
+                
+                document.getElementById('todayStaff').textContent = schedules.length;
+                document.getElementById('pendingCheck').textContent = schedules.filter(s => !s.actual_start).length;
+                
+                const now = new Date();
+                const nowTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                const late = schedules.filter(s => s.planned_start && s.planned_start < nowTime && !s.actual_start);
+                document.getElementById('lateStaff').textContent = late.length;
+            } catch (error) {
+                console.error('Ошибка загрузки статистики:', error);
+            }
+        }
+
+        // Загрузка графика на сегодня
+        async function loadTodaySchedule() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const response = await fetch(`api/work_schedule.php?organization_id=${user.organization_id}&date=${today}`);
+                const schedules = await response.json();
+                currentSchedules = schedules;
+                
+                const container = document.getElementById('todaySchedule');
+                if (!schedules || schedules.length === 0) {
+                    container.innerHTML = '<div class="alert alert-info">Нет запланированных выходов на сегодня</div>';
+                    return;
+                }
+                
+                let html = '<div style="overflow-x: auto;"><table class="table"><thead><tr>';
+                html += '<th>Сотрудник</th>';
+                html += '<th>Должность</th>';
+                html += '<th>Агентство</th>';
+                html += '<th>План прихода</th>';
+                html += '<th>План ухода</th>';
+                html += '<th>Факт прихода</th>';
+                html += '<th>Факт ухода</th>';
+                html += '<th>Статус</th>';
+                html += '<th>Действие</th>';
+                html += '</tr></thead><tbody>';
+                
+                for (let i = 0; i < schedules.length; i++) {
+                    const s = schedules[i];
+                    const staffName = s.full_name || s.staff_name || '-';
+                    const position = s.position || '-';
+                    const agencyName = s.agency_name || '-';
+                    const plannedStart = s.planned_start || '-';
+                    const plannedEnd = s.planned_end || '-';
+                    const actualStart = s.actual_start || '<span class="badge badge-warning">не отмечен</span>';
+                    const actualEnd = s.actual_end || '<span class="badge badge-warning">не отмечен</span>';
+                    const statusBadge = s.status === 'confirmed' ? 
+                        '<span class="badge badge-success">Отмечен</span>' : 
+                        '<span class="badge badge-warning">Ожидает</span>';
+                    
+                    html += '<tr>';
+                    html += '<td><strong>' + escapeHtml(staffName) + '</strong></td>';
+                    html += '<td>' + escapeHtml(position) + '</td>';
+                    html += '<td>' + escapeHtml(agencyName) + '</td>';
+                    html += '<td>' + plannedStart + '</td>';
+                    html += '<td>' + plannedEnd + '</td>';
+                    html += '<td>' + actualStart + '</td>';
+                    html += '<td>' + actualEnd + '</td>';
+                    html += '<td>' + statusBadge + '</td>';
+                    html += '<td><button class="btn btn-primary btn-sm" onclick="openCheckModal(' + s.id + ', \'' + escapeHtml(staffName) + '\')">Отметить</button></td>';
+                    html += '</tr>';
+                }
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Ошибка загрузки графика:', error);
+                document.getElementById('todaySchedule').innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+            }
+        }
+
+        // Открытие модального окна для отметки
+        function openCheckModal(id, name) {
+            const schedule = currentSchedules.find(s => s.id === id);
+            const currentTime = new Date().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+            
+            const modalHtml = `
+                <div id="checkModal" class="modal">
+                    <h3>Отметка сотрудника: ${name}</h3>
+                    <div class="form-group">
+                        <label>Время прихода</label>
+                        <input type="time" id="actual_start" value="${schedule?.actual_start || currentTime}">
+                    </div>
+                    <div class="form-group">
+                        <label>Время ухода</label>
+                        <input type="time" id="actual_end" value="${schedule?.actual_end || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>Статус</label>
+                        <select id="status">
+                            <option value="confirmed" ${schedule?.status === 'confirmed' ? 'selected' : ''}>Присутствовал</option>
+                            <option value="absent" ${schedule?.status === 'absent' ? 'selected' : ''}>Отсутствовал</option>
+                            <option value="partial" ${schedule?.status === 'partial' ? 'selected' : ''}>Частично</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-success" onclick="confirmCheck(${id})">Сохранить</button>
+                        <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
+                    </div>
+                </div>
+                <div id="modalOverlay" class="modal-overlay" onclick="closeModal()"></div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('checkModal');
+            const overlay = document.getElementById('modalOverlay');
+            if (modal) modal.remove();
+            if (overlay) overlay.remove();
+        }
+
+        async function confirmCheck(id) {
+            const actualStart = document.getElementById('actual_start').value;
+            const actualEnd = document.getElementById('actual_end').value;
+            const status = document.getElementById('status').value;
+            
+            try {
+                const response = await fetch('api/work_schedule.php', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: id,
+                        actual_start: actualStart,
+                        actual_end: actualEnd || null,
+                        status: status,
+                        confirmed_by: user.id
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showSuccess('Отметка сохранена');
+                    closeModal();
+                    loadTodaySchedule();
+                    loadStats();
+                } else {
+                    showError(result.error || 'Ошибка сохранения');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+
+        // Быстрая отметка всех присутствующих
+        async function quickMarkAll() {
+            const pending = currentSchedules.filter(s => !s.actual_start);
+            if (pending.length === 0) {
+                showError('Нет сотрудников для отметки');
+                return;
+            }
+            
+            if (!confirm(`Отметить всех (${pending.length} сотрудников) как присутствующих?`)) return;
+            
+            const now = new Date().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+            let successCount = 0;
+            
+            for (const s of pending) {
+                try {
+                    await fetch('api/work_schedule.php', {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            id: s.id,
+                            actual_start: now,
+                            status: 'confirmed',
+                            confirmed_by: user.id
+                        })
+                    });
+                    successCount++;
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+            
+            showSuccess(`Отмечено ${successCount} сотрудников`);
+            loadTodaySchedule();
+            loadStats();
+        }
+
+        // Обновление данных
+        async function refreshData() {
+            await loadTodaySchedule();
+            await loadStats();
+            showSuccess('Данные обновлены');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            if (successDiv) {
+                successDiv.textContent = message;
+                successDiv.style.display = 'block';
+                setTimeout(() => { successDiv.style.display = 'none'; }, 3000);
+            } else {
+                alert(message);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                setTimeout(() => { errorDiv.style.display = 'none'; }, 3000);
+            } else {
+                alert(message);
+            }
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        });
+
+        loadOrganization();
+        loadStats();
+        loadTodaySchedule();
+        
+        setInterval(() => {
+            loadTodaySchedule();
+            loadStats();
+        }, 30000);
+    </script>
+</body>
+</html>

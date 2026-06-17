@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Создание шаблона | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html">Агентства</a>
+            <a href="contracts.html">Договоры</a>
+            <a href="reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Создание шаблона</h1>
+            <button class="btn btn-secondary" onclick="window.location.href='templates.html'">← Назад</button>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        
+        <div class="card">
+            <form id="templateForm" onsubmit="event.preventDefault(); saveTemplate();">
+                <input type="hidden" id="templateId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Название шаблона *</label>
+                        <input type="text" id="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="type">Тип</label>
+                        <select id="type">
+                            <option value="standard">Стандартный</option>
+                            <option value="service">Услуги</option>
+                            <option value="framework">Рамочный</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="content">Содержимое шаблона *</label>
+                    <small class="form-text">Используйте {{variable}} для подстановки данных</small>
+                    <textarea id="content" rows="15" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Доступные переменные:</label>
+                    <div id="variables" class="variables-list">
+                        {{number}} - номер договора<br>
+                        {{date}} - дата<br>
+                        {{agency_name}} - название агентства<br>
+                        {{amount}} - сумма<br>
+                        {{expiration_date}} - дата окончания
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Сохранить</button>
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='templates.html'">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/templates.js"></script>
+    <script>
+        const user = checkAuth();
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+    </script>
+</body>
+</html>

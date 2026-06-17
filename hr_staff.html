@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Реестр внешнего персонала | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="hr_dashboard.html">Главная</a>
+            <a href="hr_staff.html" class="active">Реестр персонала</a>
+            <a href="hr_requests.html">Заявки</a>
+            <a href="hr_protocols.html">Протоколы цен</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Реестр внешнего персонала</h1>
+            <button class="btn btn-success" onclick="showAddStaffForm()">+ Добавить сотрудника</button>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+        
+        <!-- Форма добавления/редактирования -->
+        <div id="staffForm" class="card" style="display: none;">
+            <h3 id="formTitle">Добавление сотрудника</h3>
+            <form id="staffFormElement" onsubmit="event.preventDefault(); saveStaff();">
+                <input type="hidden" id="staffId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ФИО *</label>
+                        <input type="text" id="fullName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Должность</label>
+                        <input type="text" id="position">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Подразделение</label>
+                        <input type="text" id="department">
+                    </div>
+                    <div class="form-group">
+                        <label>Категория</label>
+                        <input type="text" id="category">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Кадровое агентство *</label>
+                        <select id="agencyId" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Организация *</label>
+                        <select id="organizationId" required></select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Телефон</label>
+                        <input type="text" id="phone">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Серия паспорта</label>
+                        <input type="text" id="passportSeries">
+                    </div>
+                    <div class="form-group">
+                        <label>Номер паспорта</label>
+                        <input type="text" id="passportNumber">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Кем выдан</label>
+                        <input type="text" id="passportIssuedBy">
+                    </div>
+                    <div class="form-group">
+                        <label>Дата выдачи</label>
+                        <input type="date" id="passportIssuedDate">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ИНН</label>
+                        <input type="text" id="taxId">
+                    </div>
+                    <div class="form-group">
+                        <label>СНИЛС</label>
+                        <input type="text" id="socialSecurityNumber">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Дата рождения</label>
+                        <input type="date" id="birthDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Образование</label>
+                        <input type="text" id="education">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Навыки</label>
+                    <textarea id="skills" rows="3"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Дата найма</label>
+                        <input type="date" id="hireDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Дата увольнения</label>
+                        <input type="date" id="fireDate">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Примечания</label>
+                    <textarea id="notes" rows="2"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox">
+                        <input type="checkbox" id="isActive" checked> Активен
+                    </label>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Сохранить</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideStaffForm()">Отмена</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Фильтры и поиск -->
+        <div class="card">
+            <div class="filters">
+                <select id="agencyFilter">
+                    <option value="">Все агентства</option>
+                </select>
+                <select id="organizationFilter">
+                    <option value="">Все организации</option>
+                </select>
+                <select id="statusFilter">
+                    <option value="all">Все статусы</option>
+                    <option value="1">Активные</option>
+                    <option value="0">Неактивные</option>
+                </select>
+                <button class="btn btn-primary" onclick="applyFilters()">Применить</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Сбросить</button>
+            </div>
+            
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Поиск по ФИО, должности...">
+            </div>
+            
+            <div style="overflow-x: auto;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Таб. №</th>
+                            <th>ФИО</th>
+                            <th>Должность</th>
+                            <th>Подразделение</th>
+                            <th>Агентство</th>
+                            <th>Организация</th>
+                            <th>Телефон</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffList">
+                        <tr><td colspan="9" class="text-center">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        if (user.role !== 'hr_specialist' && user.role !== 'admin') {
+            window.location.href = 'dashboard.html';
+        }
+
+        let allStaff = [];
+        let agencies = [];
+        let organizations = [];
+
+        // Загрузка справочников
+        async function loadDictionaries() {
+            const agenciesRes = await fetch('api/agencies.php?active=1');
+            agencies = await agenciesRes.json();
+            
+            const orgRes = await fetch('api/organizations.php?active=1');
+            organizations = await orgRes.json();
+            
+            const agencySelect = document.getElementById('agencyId');
+            const agencyFilter = document.getElementById('agencyFilter');
+            const orgSelect = document.getElementById('organizationId');
+            const orgFilter = document.getElementById('organizationFilter');
+            
+            agencySelect.innerHTML = '<option value="">Выберите агентство</option>' + 
+                agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            
+            agencyFilter.innerHTML = '<option value="">Все агентства</option>' + 
+                agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            
+            orgSelect.innerHTML = '<option value="">Выберите организацию</option>' + 
+                organizations.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+            
+            orgFilter.innerHTML = '<option value="">Все организации</option>' + 
+                organizations.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+        }
+
+        // Загрузка списка сотрудников
+        async function loadStaff() {
+            try {
+                const response = await fetch('api/external_staff.php');
+                allStaff = await response.json();
+                displayStaff(allStaff);
+            } catch (error) {
+                showError('Ошибка загрузки данных');
+            }
+        }
+
+        function displayStaff(staff) {
+            const tbody = document.getElementById('staffList');
+            
+            if (staff.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center">Нет данных</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = staff.map(s => `
+                <tr>
+                    <td>${escapeHtml(s.staff_number) || '-'}</td>
+                    <td><strong>${escapeHtml(s.full_name)}</strong></td>
+                    <td>${escapeHtml(s.position) || '-'}</td>
+                    <td>${escapeHtml(s.department) || '-'}</td>
+                    <td>${escapeHtml(s.agency_name) || '-'}</td>
+                    <td>${escapeHtml(s.organization_name) || '-'}</td>
+                    <td>${formatPhone(s.phone) || '-'}</td>
+                    <td>
+                        <span class="badge ${s.is_active ? 'badge-success' : 'badge-secondary'}">
+                            ${s.is_active ? 'Активен' : 'Неактивен'}
+                        </span>
+                    </td>
+                    <td class="actions">
+                        <button class="btn btn-sm btn-info" onclick="viewStaff(${s.id})">👁️</button>
+                        <button class="btn btn-sm btn-warning" onclick="editStaff(${s.id})">✏️</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteStaff(${s.id})">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function showAddStaffForm() {
+            document.getElementById('formTitle').textContent = 'Добавление сотрудника';
+            document.getElementById('staffId').value = '';
+            document.getElementById('staffFormElement').reset();
+            document.getElementById('isActive').checked = true;
+            document.getElementById('hireDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('staffForm').style.display = 'block';
+        }
+
+        function hideStaffForm() {
+            document.getElementById('staffForm').style.display = 'none';
+        }
+
+        async function editStaff(id) {
+            const staff = allStaff.find(s => s.id == id);
+            if (staff) {
+                document.getElementById('formTitle').textContent = 'Редактирование сотрудника';
+                document.getElementById('staffId').value = staff.id;
+                document.getElementById('fullName').value = staff.full_name || '';
+                document.getElementById('position').value = staff.position || '';
+                document.getElementById('department').value = staff.department || '';
+                document.getElementById('category').value = staff.category || '';
+                document.getElementById('agencyId').value = staff.agency_id || '';
+                document.getElementById('organizationId').value = staff.organization_id || '';
+                document.getElementById('phone').value = staff.phone || '';
+                document.getElementById('email').value = staff.email || '';
+                document.getElementById('passportSeries').value = staff.passport_series || '';
+                document.getElementById('passportNumber').value = staff.passport_number || '';
+                document.getElementById('passportIssuedBy').value = staff.passport_issued_by || '';
+                document.getElementById('passportIssuedDate').value = staff.passport_issued_date || '';
+                document.getElementById('taxId').value = staff.tax_id || '';
+                document.getElementById('socialSecurityNumber').value = staff.social_security_number || '';
+                document.getElementById('birthDate').value = staff.birth_date || '';
+                document.getElementById('education').value = staff.education || '';
+                document.getElementById('skills').value = staff.skills || '';
+                document.getElementById('hireDate').value = staff.hire_date || '';
+                document.getElementById('fireDate').value = staff.fire_date || '';
+                document.getElementById('notes').value = staff.notes || '';
+                document.getElementById('isActive').checked = staff.is_active == 1;
+                document.getElementById('staffForm').style.display = 'block';
+            }
+        }
+
+        async function saveStaff() {
+            const id = document.getElementById('staffId').value;
+            const data = {
+                id: id || undefined,
+                full_name: document.getElementById('fullName').value,
+                position: document.getElementById('position').value,
+                department: document.getElementById('department').value,
+                category: document.getElementById('category').value,
+                agency_id: document.getElementById('agencyId').value,
+                organization_id: document.getElementById('organizationId').value,
+                phone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                passport_series: document.getElementById('passportSeries').value,
+                passport_number: document.getElementById('passportNumber').value,
+                passport_issued_by: document.getElementById('passportIssuedBy').value,
+                passport_issued_date: document.getElementById('passportIssuedDate').value,
+                tax_id: document.getElementById('taxId').value,
+                social_security_number: document.getElementById('socialSecurityNumber').value,
+                birth_date: document.getElementById('birthDate').value,
+                education: document.getElementById('education').value,
+                skills: document.getElementById('skills').value,
+                hire_date: document.getElementById('hireDate').value,
+                fire_date: document.getElementById('fireDate').value,
+                notes: document.getElementById('notes').value,
+                is_active: document.getElementById('isActive').checked ? 1 : 0,
+                created_by: user.id,
+                updated_by: user.id
+            };
+            
+            if (!data.full_name) {
+                showError('Введите ФИО сотрудника');
+                return;
+            }
+            if (!data.agency_id) {
+                showError('Выберите агентство');
+                return;
+            }
+            if (!data.organization_id) {
+                showError('Выберите организацию');
+                return;
+            }
+            
+            const method = id ? 'PUT' : 'POST';
+            
+            try {
+                const response = await fetch('api/external_staff.php', {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(id ? 'Данные обновлены' : 'Сотрудник добавлен');
+                    hideStaffForm();
+                    loadStaff();
+                } else {
+                    showError(result.error || 'Ошибка сохранения');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+
+        function viewStaff(id) {
+            const staff = allStaff.find(s => s.id == id);
+            if (staff) {
+                alert(`
+                    ФИО: ${staff.full_name}
+                    Должность: ${staff.position || '-'}
+                    Подразделение: ${staff.department || '-'}
+                    Агентство: ${staff.agency_name || '-'}
+                    Организация: ${staff.organization_name || '-'}
+                    Телефон: ${staff.phone || '-'}
+                    Email: ${staff.email || '-'}
+                    Статус: ${staff.is_active ? 'Активен' : 'Неактивен'}
+                `);
+            }
+        }
+
+        async function deleteStaff(id) {
+            if (!confirm('Вы уверены, что хотите удалить сотрудника?')) return;
+            
+            try {
+                const response = await fetch(`api/external_staff.php?id=${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(result.message);
+                    loadStaff();
+                } else {
+                    showError(result.error || 'Ошибка удаления');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+
+        function applyFilters() {
+            const agencyId = document.getElementById('agencyFilter').value;
+            const orgId = document.getElementById('organizationFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            
+            let filtered = [...allStaff];
+            
+            if (agencyId) {
+                filtered = filtered.filter(s => s.agency_id == agencyId);
+            }
+            if (orgId) {
+                filtered = filtered.filter(s => s.organization_id == orgId);
+            }
+            if (status !== 'all') {
+                filtered = filtered.filter(s => s.is_active == status);
+            }
+            if (search) {
+                filtered = filtered.filter(s => 
+                    (s.full_name && s.full_name.toLowerCase().includes(search)) ||
+                    (s.position && s.position.toLowerCase().includes(search)) ||
+                    (s.department && s.department.toLowerCase().includes(search))
+                );
+            }
+            
+            displayStaff(filtered);
+        }
+
+        function resetFilters() {
+            document.getElementById('agencyFilter').value = '';
+            document.getElementById('organizationFilter').value = '';
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('searchInput').value = '';
+            displayStaff(allStaff);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
+        loadDictionaries();
+        loadStaff();
+    </script>
+</body>
+</html>

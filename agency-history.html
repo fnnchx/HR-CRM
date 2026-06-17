@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>История реквизитов | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html" class="active">Агентства</a>
+            <a href="contracts.html">Договоры</a>
+            <a href="reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 id="agencyName">История реквизитов</h1>
+            <div>
+                <button class="btn btn-primary" onclick="window.location.href='agencies.html'">← Назад</button>
+            </div>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Банк</th>
+                        <th>УНП</th>
+                        <th>ОКПО</th>
+                        <th>БИК</th>
+                        <th>Расчетный счет</th>
+                        <th>Юридический адрес</th>
+                        <th>Директор</th>
+                        <th>Действует с</th>
+                        <th>Действует по</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="historyList">
+                    <tr><td colspan="10" class="text-center">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        const params = getUrlParams();
+        const agencyId = params.id;
+        
+        if (!agencyId) {
+            window.location.href = 'agencies.html';
+        }
+        
+        async function loadHistory() {
+            try {
+                const agenciesRes = await fetch('api/agencies.php');
+                const agencies = await agenciesRes.json();
+                const agency = agencies.find(a => a.id == agencyId);
+                if (agency) {
+                    document.getElementById('agencyName').textContent = `История реквизитов - ${agency.name}`;
+                }
+                
+                const response = await fetch(`api/requisites.php?agency_id=${agencyId}`);
+                const requisites = await response.json();
+                
+                const tbody = document.getElementById('historyList');
+                
+                if (requisites.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Нет данных</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = requisites.map(r => `
+                    <tr>
+                        <td>${escapeHtml(r.bank_name) || '-'}</td>
+                        <td>${escapeHtml(r.unp) || '-'}</td>
+                        <td>${escapeHtml(r.okpo) || '-'}</td>
+                        <td>${escapeHtml(r.bic) || '-'}</td>
+                        <td>${escapeHtml(r.account_number) || '-'}</td>
+                        <td>${escapeHtml(r.legal_address) || '-'}</td>
+                        <td>${escapeHtml(r.director_name) || '-'}</td>
+                        <td>${r.valid_from || '-'}</td>
+                        <td>${r.valid_to || '-'}</td>
+                        <td>
+                            ${!r.valid_to ? '<span class="badge badge-success">Текущие</span>' : ''}
+                        </td>
+                    </tr>
+                `).join('');
+                
+            } catch (error) {
+                showError('Ошибка загрузки истории');
+            }
+        }
+        
+        loadHistory();
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+    </script>
+</body>
+</html>

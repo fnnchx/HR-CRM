@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр договора | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html">Агентства</a>
+            <a href="contracts.html" class="active">Договоры</a>
+            <a href="reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 id="contractNumber">Просмотр договора</h1>
+            <div>
+                <button class="btn btn-warning" onclick="editContract()">✏️ Редактировать</button>
+                <button class="btn btn-primary" onclick="printContract()">🖨️ Печать</button>
+                <button class="btn btn-secondary" onclick="window.location.href='contracts.html'">← Назад</button>
+            </div>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        
+        <div class="card">
+            <h2>Основная информация</h2>
+            <table class="info-table">
+                <tr>
+                    <th>Номер договора:</th>
+                    <td id="viewNumber">-</td>
+                </tr>
+                <tr>
+                    <th>Агентство:</th>
+                    <td id="viewAgency">-</td>
+                </tr>
+                <tr>
+                    <th>Дата подписания:</th>
+                    <td id="viewSigningDate">-</td>
+                </tr>
+                <tr>
+                    <th>Срок действия:</th>
+                    <td id="viewExpirationDate">-</td>
+                </tr>
+                <tr>
+                    <th>Статус:</th>
+                    <td id="viewStatus">-</td>
+                </tr>
+                <tr>
+                    <th>Общая сумма:</th>
+                    <td id="viewTotal">-</td>
+                </tr>
+                <tr>
+                    <th>Дата создания:</th>
+                    <td id="viewCreatedAt">-</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>Услуги</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Услуга</th>
+                        <th>Цена, Br</th>
+                        <th>Количество</th>
+                        <th>Сумма, Br</th>
+                    </tr>
+                </thead>
+                <tbody id="servicesList">
+                    <tr><td colspan="4" class="text-center">Загрузка...</td></tr>
+                </tbody>
+                <tfoot id="servicesTotal">
+                    <tr>
+                        <th colspan="3">Итого:</th>
+                        <th id="totalAmount">0,00 Br</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>Условия договора</h2>
+            <div id="viewTerms" class="contract-terms"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Примечания</h2>
+            <div id="viewNotes"></div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        const params = getUrlParams();
+        const contractId = params.id;
+        
+        if (!contractId) {
+            window.location.href = 'contracts.html';
+        }
+        
+        async function loadContract() {
+            try {
+                const response = await fetch('api/contracts.php');
+                const contracts = await response.json();
+                const contract = contracts.find(c => c.id == contractId);
+                
+                if (contract) {
+                    document.getElementById('contractNumber').textContent = `Договор ${contract.number || 'б/н'}`;
+                    document.getElementById('viewNumber').textContent = contract.number || 'б/н';
+                    document.getElementById('viewAgency').innerHTML = `<a href="agency-view.html?id=${contract.agency_id}">${escapeHtml(contract.agency_name) || '-'}</a>`;
+                    document.getElementById('viewSigningDate').textContent = contract.signing_date || '-';
+                    document.getElementById('viewExpirationDate').textContent = contract.expiration_date || 'Бессрочно';
+                    document.getElementById('viewStatus').innerHTML = `<span class="badge ${getStatusClass(contract.status)}">${getStatusText(contract.status)}</span>`;
+                    document.getElementById('viewTotal').textContent = formatMoney(contract.total_amount);
+                    document.getElementById('viewCreatedAt').textContent = formatDate(contract.created_at);
+                    document.getElementById('viewTerms').textContent = contract.terms || 'Не указаны';
+                    document.getElementById('viewNotes').textContent = contract.notes || 'Нет';
+                }
+            } catch (error) {
+                showError('Ошибка загрузки данных');
+            }
+        }
+        
+        async function loadServices() {
+            try {
+                const response = await fetch(`api/contract-services.php?contract_id=${contractId}`);
+                const services = await response.json();
+                
+                const tbody = document.getElementById('servicesList');
+                
+                if (services.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Услуги не указаны</td></tr>';
+                    document.getElementById('totalAmount').textContent = formatMoney(0);
+                    return;
+                }
+                
+                let total = 0;
+                tbody.innerHTML = services.map(s => {
+                    const sum = s.price * s.quantity;
+                    total += sum;
+                    return `
+                    <tr>
+                        <td>${escapeHtml(s.service_name) || '-'}</td>
+                        <td>${formatMoney(s.price)}</td>
+                        <td>${s.quantity || 1}</td>
+                        <td>${formatMoney(sum)}</td>
+                    </tr>
+                `}).join('');
+                
+                document.getElementById('totalAmount').textContent = formatMoney(total);
+                
+            } catch (error) {
+                document.getElementById('servicesList').innerHTML = '<tr><td colspan="4" class="text-center">Ошибка загрузки</td></tr>';
+            }
+        }
+        
+        function editContract() {
+            window.location.href = `contract-edit.html?id=${contractId}`;
+        }
+        
+        function printContract() {
+            window.open(`contract-print.html?id=${contractId}`, '_blank');
+        }
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+        
+        loadContract();
+        loadServices();
+    </script>
+</body>
+</html>

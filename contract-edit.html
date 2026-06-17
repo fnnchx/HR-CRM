@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактирование договора | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html">Агентства</a>
+            <a href="contracts.html" class="active">Договоры</a>
+            <a href="templates.html">Шаблоны</a>
+            <a href="reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Редактирование договора</h1>
+            <button class="btn btn-secondary" onclick="window.location.href='contracts.html'">← Назад</button>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+        
+        <div class="card">
+            <form id="contractForm" onsubmit="event.preventDefault(); updateContract();">
+                <input type="hidden" id="contractId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="number">Номер договора</label>
+                        <input type="text" id="number" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="signingDate">Дата подписания</label>
+                        <input type="date" id="signingDate">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="agencyId">Агентство</label>
+                        <select id="agencyId" required>
+                            <option value="">Выберите агентство</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="status">Статус</label>
+                        <select id="status">
+                            <option value="draft">Черновик</option>
+                            <option value="active">Активен</option>
+                            <option value="expired">Истек</option>
+                            <option value="terminated">Расторгнут</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="expirationDate">Срок действия до</label>
+                        <input type="date" id="expirationDate">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="totalAmount">Общая сумма, Br</label>
+                        <input type="number" id="totalAmount" step="0.01" min="0" readonly>
+                    </div>
+                </div>
+                
+                <h2 style="margin-top: 30px;">Услуги</h2>
+                <div id="servicesContainer" class="services-container">
+                </div>
+                
+                <div class="form-group">
+                    <label for="terms">Условия договора</label>
+                    <textarea id="terms" rows="5"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="notes">Примечания</label>
+                    <textarea id="notes" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Сохранить изменения</button>
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='contracts.html'">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+        
+        const params = getUrlParams();
+        const contractId = params.id;
+        
+        if (!contractId) {
+            window.location.href = 'contracts.html';
+        }
+        
+        document.getElementById('contractId').value = contractId;
+        
+        async function loadAgenciesSelect() {
+            try {
+                const response = await fetch('api/agencies.php');
+                const agencies = await response.json();
+                
+                const select = document.getElementById('agencyId');
+                select.innerHTML = '<option value="">Выберите агентство</option>' +
+                    agencies.map(a => 
+                        `<option value="${a.id}">${escapeHtml(a.name)}</option>`
+                    ).join('');
+            } catch (error) {
+                showError('Ошибка загрузки агентств');
+            }
+        }
+        
+        async function loadServices() {
+            try {
+                const response = await fetch('api/services.php');
+                const services = await response.json();
+                
+                const container = document.getElementById('servicesContainer');
+                if (!container) return;
+                
+                container.innerHTML = services.map(s => `
+                    <div class="service-item">
+                        <label class="checkbox">
+                            <input type="checkbox" class="service-checkbox" value="${s.id}" data-price="${s.default_price || 0}">
+                            <span>${escapeHtml(s.name)}</span>
+                        </label>
+                        <div class="service-details" style="display: none; margin-left: 30px; margin-top: 10px;">
+                            <input type="number" class="service-price" placeholder="Цена, Br" value="${s.default_price || 0}" step="0.01" min="0">
+                            <input type="number" class="service-quantity" placeholder="Количество" value="1" min="1">
+                            <input type="text" class="service-description" placeholder="Описание">
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.querySelectorAll('.service-checkbox').forEach(cb => {
+                    cb.addEventListener('change', function() {
+                        const details = this.closest('.service-item').querySelector('.service-details');
+                        if (details) {
+                            details.style.display = this.checked ? 'block' : 'none';
+                        }
+                        calculateTotal();
+                    });
+                });
+                
+                document.querySelectorAll('.service-price, .service-quantity').forEach(input => {
+                    input.addEventListener('input', calculateTotal);
+                });
+                
+            } catch (error) {
+                console.error('Ошибка загрузки услуг:', error);
+            }
+        }
+        
+        function calculateTotal() {
+            let total = 0;
+            document.querySelectorAll('.service-item').forEach(item => {
+                const checkbox = item.querySelector('.service-checkbox');
+                if (checkbox && checkbox.checked) {
+                    const price = parseFloat(item.querySelector('.service-price')?.value) || 0;
+                    const quantity = parseInt(item.querySelector('.service-quantity')?.value) || 1;
+                    total += price * quantity;
+                }
+            });
+            
+            const totalInput = document.getElementById('totalAmount');
+            if (totalInput) {
+                totalInput.value = total.toFixed(2);
+            }
+        }
+        
+        async function loadContract() {
+            try {
+                const response = await fetch('api/contracts.php');
+                const contracts = await response.json();
+                const contract = contracts.find(c => c.id == contractId);
+                
+                if (contract) {
+                    document.getElementById('number').value = contract.number || '';
+                    document.getElementById('agencyId').value = contract.agency_id || '';
+                    document.getElementById('signingDate').value = contract.signing_date || '';
+                    document.getElementById('expirationDate').value = contract.expiration_date || '';
+                    document.getElementById('status').value = contract.status || 'draft';
+                    document.getElementById('totalAmount').value = contract.total_amount || 0;
+                    document.getElementById('terms').value = contract.terms || '';
+                    document.getElementById('notes').value = contract.notes || '';
+                }
+            } catch (error) {
+                showError('Ошибка загрузки договора');
+            }
+        }
+        
+        async function loadContractServices() {
+            try {
+                const response = await fetch(`api/contract-services.php?contract_id=${contractId}`);
+                const services = await response.json();
+                
+                setTimeout(() => {
+                    services.forEach(s => {
+                        const checkbox = document.querySelector(`.service-checkbox[value="${s.service_id}"]`);
+                        if (checkbox) {
+                            checkbox.checked = true;
+                            const details = checkbox.closest('.service-item').querySelector('.service-details');
+                            if (details) {
+                                details.style.display = 'block';
+                                const priceInput = details.querySelector('.service-price');
+                                const quantityInput = details.querySelector('.service-quantity');
+                                const descInput = details.querySelector('.service-description');
+                                if (priceInput) priceInput.value = s.price;
+                                if (quantityInput) quantityInput.value = s.quantity;
+                                if (descInput) descInput.value = s.description || '';
+                            }
+                        }
+                    });
+                    calculateTotal();
+                }, 500);
+                
+            } catch (error) {
+                console.error('Ошибка загрузки услуг договора');
+            }
+        }
+        
+        async function updateContract() {
+            const services = [];
+            document.querySelectorAll('.service-item').forEach(item => {
+                const checkbox = item.querySelector('.service-checkbox');
+                if (checkbox && checkbox.checked) {
+                    services.push({
+                        service_id: checkbox.value,
+                        price: parseFloat(item.querySelector('.service-price')?.value) || 0,
+                        quantity: parseInt(item.querySelector('.service-quantity')?.value) || 1,
+                        description: item.querySelector('.service-description')?.value || ''
+                    });
+                }
+            });
+            
+            const data = {
+                id: contractId,
+                agency_id: document.getElementById('agencyId').value,
+                signing_date: document.getElementById('signingDate').value,
+                expiration_date: document.getElementById('expirationDate').value,
+                status: document.getElementById('status').value,
+                total_amount: parseFloat(document.getElementById('totalAmount').value) || 0,
+                terms: document.getElementById('terms').value,
+                notes: document.getElementById('notes').value,
+                services: services
+            };
+            
+            if (!data.agency_id) {
+                showError('Выберите агентство');
+                return;
+            }
+            
+            try {
+                await fetch(`api/contract-services.php?contract_id=${contractId}`, {
+                    method: 'DELETE'
+                });
+                
+                const response = await fetch('api/contracts.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    for (const service of services) {
+                        await fetch('api/contract-services.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contract_id: contractId,
+                                service_id: service.service_id,
+                                price: service.price,
+                                quantity: service.quantity,
+                                description: service.description
+                            })
+                        });
+                    }
+                    
+                    showSuccess('Договор обновлен');
+                    setTimeout(() => {
+                        window.location.href = 'contracts.html';
+                    }, 1000);
+                } else {
+                    showError(result.error || 'Ошибка обновления');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу: ' + error.message);
+            }
+        }
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAgenciesSelect();
+            loadServices();
+            loadContract();
+            loadContractServices();
+        });
+    </script>
+</body>
+</html>

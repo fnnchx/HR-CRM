@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактирование агентства | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html" class="active">Агентства</a>
+            <a href="contracts.html">Договоры</a>
+            <a href="reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Редактирование агентства</h1>
+            <div>
+                <button class="btn btn-secondary" onclick="window.location.href='agencies.html'">← Назад к списку</button>
+            </div>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        <div id="successMessage" class="alert alert-success" style="display: none;"></div>
+        
+        <div class="card">
+            <form id="agencyForm" onsubmit="event.preventDefault(); updateAgency();">
+                <input type="hidden" id="agencyId">
+                
+                <h2>Основная информация</h2>
+                
+                <div class="form-group">
+                    <label for="name">Название агентства *</label>
+                    <input type="text" id="name" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phone">Телефон</label>
+                        <input type="text" id="phone" placeholder="+375291234567">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="contactPerson">Контактное лицо</label>
+                        <input type="text" id="contactPerson">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contactPhone">Телефон контактного лица</label>
+                        <input type="text" id="contactPhone">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox">
+                        <input type="checkbox" id="isActive"> Активно
+                    </label>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='agencies.html'">Отмена</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>Добавление новых реквизитов</h2>
+                <button class="btn btn-sm btn-success" onclick="toggleRequisitesForm()">+ Добавить</button>
+            </div>
+            
+            <div id="requisitesForm" style="display: none;">
+                <form onsubmit="event.preventDefault(); addRequisites();">
+                    <input type="hidden" id="reqAgencyId">
+                    
+                    <div class="form-group">
+                        <label for="bankName">Банк</label>
+                        <input type="text" id="bankName">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="unp">УНП</label>
+                            <input type="text" id="unp">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="okpo">ОКПО</label>
+                            <input type="text" id="okpo">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="bic">БИК</label>
+                            <input type="text" id="bic">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="accountNumber">Расчетный счет</label>
+                            <input type="text" id="accountNumber">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="legalAddress">Юридический адрес</label>
+                        <textarea id="legalAddress" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="directorName">Директор</label>
+                        <input type="text" id="directorName">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="validFrom">Действует с</label>
+                            <input type="date" id="validFrom">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="validTo">Действует по</label>
+                            <input type="date" id="validTo">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox">
+                            <input type="checkbox" id="isCurrent" checked> Сделать текущими
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">Сохранить реквизиты</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleRequisitesForm()">Отмена</button>
+                </form>
+            </div>
+            
+            <h3 style="margin-top: 20px;">История реквизитов</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Банк</th>
+                        <th>УНП</th>
+                        <th>ОКПО</th>
+                        <th>Юридический адрес</th>
+                        <th>Директор</th>
+                        <th>Действует с</th>
+                        <th>Действует по</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="requisitesList">
+                    <tr>
+                        <td colspan="8" class="text-center">Загрузка...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        const params = getUrlParams();
+        const agencyId = params.id;
+        
+        if (!agencyId) {
+            window.location.href = 'agencies.html';
+        }
+        
+        document.getElementById('agencyId').value = agencyId;
+        document.getElementById('reqAgencyId').value = agencyId;
+        
+        async function loadAgency() {
+            try {
+                const response = await fetch(`api/agencies.php?id=${agencyId}`);
+                const agency = await response.json();
+                
+                if (agency) {
+                    document.getElementById('name').value = agency.name || '';
+                    document.getElementById('email').value = agency.email || '';
+                    document.getElementById('phone').value = agency.phone || '';
+                    document.getElementById('contactPerson').value = agency.contact_person || '';
+                    document.getElementById('contactPhone').value = agency.contact_phone || '';
+                    document.getElementById('isActive').checked = agency.is_active == 1;
+                }
+            } catch (error) {
+                showError('Ошибка загрузки данных агентства');
+            }
+        }
+        
+        async function updateAgency() {
+            const data = {
+                id: agencyId,
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                contact_person: document.getElementById('contactPerson').value,
+                contact_phone: document.getElementById('contactPhone').value,
+                is_active: document.getElementById('isActive').checked ? 1 : 0
+            };
+            
+            if (!data.name) {
+                showError('Название агентства обязательно');
+                return;
+            }
+            
+            try {
+                const response = await fetch('api/agencies.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Агентство успешно обновлено');
+                    setTimeout(() => {
+                        window.location.href = 'agencies.html';
+                    }, 1000);
+                } else {
+                    showError(result.error || 'Ошибка обновления');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+        
+        async function loadRequisites() {
+            try {
+                const response = await fetch(`api/requisites.php?agency_id=${agencyId}`);
+                const requisites = await response.json();
+                
+                const tbody = document.getElementById('requisitesList');
+                
+                if (requisites.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Нет данных</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = requisites.map(r => `
+                    <tr>
+                        <td>${escapeHtml(r.bank_name) || '-'}</td>
+                        <td>${escapeHtml(r.unp) || '-'}</td>
+                        <td>${escapeHtml(r.okpo) || '-'}</td>
+                        <td>${escapeHtml(r.legal_address) || '-'}</td>
+                        <td>${escapeHtml(r.director_name) || '-'}</td>
+                        <td>${r.valid_from || '-'}</td>
+                        <td>${r.valid_to || '-'}</td>
+                        <td>
+                            ${!r.valid_to ? '<span class="badge badge-success">Текущие</span>' : ''}
+                        </td>
+                    </tr>
+                `).join('');
+                
+            } catch (error) {
+                document.getElementById('requisitesList').innerHTML = '<tr><td colspan="8" class="text-center">Ошибка загрузки</td></tr>';
+            }
+        }
+        
+        async function addRequisites() {
+            const data = {
+                agency_id: agencyId,
+                bank_name: document.getElementById('bankName').value,
+                unp: document.getElementById('unp').value,
+                okpo: document.getElementById('okpo').value,
+                bic: document.getElementById('bic').value,
+                account_number: document.getElementById('accountNumber').value,
+                legal_address: document.getElementById('legalAddress').value,
+                director_name: document.getElementById('directorName').value,
+                valid_from: document.getElementById('validFrom').value || getCurrentDate(),
+                valid_to: document.getElementById('validTo').value || null,
+                is_current: document.getElementById('isCurrent').checked
+            };
+            
+            try {
+                const response = await fetch('api/requisites.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Реквизиты добавлены');
+                    toggleRequisitesForm();
+                    loadRequisites();
+                    
+                    document.getElementById('bankName').value = '';
+                    document.getElementById('unp').value = '';
+                    document.getElementById('okpo').value = '';
+                    document.getElementById('bic').value = '';
+                    document.getElementById('accountNumber').value = '';
+                    document.getElementById('legalAddress').value = '';
+                    document.getElementById('directorName').value = '';
+                    document.getElementById('validFrom').value = '';
+                    document.getElementById('validTo').value = '';
+                } else {
+                    showError(result.error || 'Ошибка сохранения');
+                }
+            } catch (error) {
+                showError('Ошибка подключения к серверу');
+            }
+        }
+        
+        function toggleRequisitesForm() {
+            const form = document.getElementById('requisitesForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+        
+        loadAgency();
+        loadRequisites();
+    </script>
+</body>
+</html>

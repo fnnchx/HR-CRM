@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кадровые агентства | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html" class="active">Агентства</a>
+            <a href="contracts.html">Договоры</a>
+            <a href="reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Кадровые агентства</h1>
+            <button class="btn btn-success" onclick="window.location.href='agency-add.html'">+ Добавить агентство</button>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        
+        <div class="card">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Поиск по названию, email или телефону...">
+            </div>
+            
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Email</th>
+                        <th>Телефон</th>
+                        <th>Контактное лицо</th>
+                        <th>Договоры</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="agenciesList">
+                    <tr>
+                        <td colspan="7" class="text-center">Загрузка...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+
+        let agencies = [];
+
+        async function loadAgencies() {
+            try {
+                const response = await fetch('api/agencies.php');
+                agencies = await response.json();
+                displayAgencies(agencies);
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = 'Ошибка загрузки данных';
+                document.getElementById('errorMessage').style.display = 'block';
+            }
+        }
+
+        function displayAgencies(data) {
+            const tbody = document.getElementById('agenciesList');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">Нет данных</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.map(a => `
+                <tr>
+                    <td><strong>${escapeHtml(a.name)}</strong></td>
+                    <td>${escapeHtml(a.email) || '-'}</td>
+                    <td>${escapeHtml(a.phone) || '-'}</td>
+                    <td>${escapeHtml(a.contact_person) || '-'}</td>
+                    <td><span class="badge badge-info">${a.active_contracts || 0}</span></td>
+                    <td>
+                        <span class="badge ${a.is_active ? 'badge-success' : 'badge-secondary'}">
+                            ${a.is_active ? 'Активно' : 'Неактивно'}
+                        </span>
+                    </td>
+                    <td class="actions">
+                        <button class="btn btn-sm btn-info" onclick="viewAgency(${a.id})">👁️</button>
+                        <button class="btn btn-sm btn-warning" onclick="editAgency(${a.id})">✏️</button>
+                        <button class="btn btn-sm btn-secondary" onclick="historyAgency(${a.id})">📋</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteAgency(${a.id})">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            const filtered = agencies.filter(a => 
+                (a.name && a.name.toLowerCase().includes(search)) ||
+                (a.email && a.email.toLowerCase().includes(search)) ||
+                (a.phone && a.phone.toLowerCase().includes(search))
+            );
+            displayAgencies(filtered);
+        });
+
+        function viewAgency(id) {
+            window.location.href = `agency-view.html?id=${id}`;
+        }
+
+        function editAgency(id) {
+            window.location.href = `agencies-edit.html?id=${id}`;
+        }
+
+        function historyAgency(id) {
+            window.location.href = `agency-history.html?id=${id}`;
+        }
+
+        async function deleteAgency(id) {
+            if (!confirm('Вы уверены, что хотите удалить это агентство?')) return;
+            
+            try {
+                const response = await fetch(`api/agencies.php?id=${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadAgencies();
+                } else {
+                    document.getElementById('errorMessage').textContent = result.error || 'Ошибка удаления';
+                    document.getElementById('errorMessage').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = 'Ошибка подключения к серверу';
+                document.getElementById('errorMessage').style.display = 'block';
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return text;
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        });
+
+        loadAgencies();
+    </script>
+</body>
+</html>

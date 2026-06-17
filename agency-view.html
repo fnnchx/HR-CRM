@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр агентства | HR CRM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM</div>
+        <div class="nav-menu">
+            <a href="dashboard.html">Главная</a>
+            <a href="agencies.html" class="active">Агентства</a>
+            <a href="contracts.html">Договоры</a>
+            <a href="reports.html">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 id="agencyName">Просмотр агентства</h1>
+            <div>
+                <button class="btn btn-warning" onclick="editAgency()">✏️ Редактировать</button>
+                <button class="btn btn-secondary" onclick="historyAgency()">📋 История</button>
+                <button class="btn btn-primary" onclick="window.location.href='agencies.html'">← Назад</button>
+            </div>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+        
+        <div class="card">
+            <h2>Основная информация</h2>
+            <table class="info-table">
+                <tr>
+                    <th>Название:</th>
+                    <td id="viewName">-</td>
+                </tr>
+                <tr>
+                    <th>Email:</th>
+                    <td id="viewEmail">-</td>
+                </tr>
+                <tr>
+                    <th>Телефон:</th>
+                    <td id="viewPhone">-</td>
+                </tr>
+                <tr>
+                    <th>Контактное лицо:</th>
+                    <td id="viewContactPerson">-</td>
+                </tr>
+                <tr>
+                    <th>Телефон контактного лица:</th>
+                    <td id="viewContactPhone">-</td>
+                </tr>
+                <tr>
+                    <th>Статус:</th>
+                    <td id="viewStatus">-</td>
+                </tr>
+                <tr>
+                    <th>Дата создания:</th>
+                    <td id="viewCreatedAt">-</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>Текущие реквизиты</h2>
+            <table class="info-table" id="requisitesInfo">
+                <tr>
+                    <th>Банк:</th>
+                    <td id="viewBank">-</td>
+                </tr>
+                <tr>
+                    <th>УНП:</th>
+                    <td id="viewUnp">-</td>
+                </tr>
+                <tr>
+                    <th>ОКПО:</th>
+                    <td id="viewOkpo">-</td>
+                </tr>
+                <tr>
+                    <th>БИК:</th>
+                    <td id="viewBic">-</td>
+                </tr>
+                <tr>
+                    <th>Расчетный счет:</th>
+                    <td id="viewAccount">-</td>
+                </tr>
+                <tr>
+                    <th>Юридический адрес:</th>
+                    <td id="viewAddress">-</td>
+                </tr>
+                <tr>
+                    <th>Директор:</th>
+                    <td id="viewDirector">-</td>
+                </tr>
+                <tr>
+                    <th>Действует с:</th>
+                    <td id="viewValidFrom">-</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>Договоры агентства</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Номер</th>
+                        <th>Дата подписания</th>
+                        <th>Срок действия</th>
+                        <th>Сумма</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="contractsList">
+                    <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = checkAuth();
+        const params = getUrlParams();
+        const agencyId = params.id;
+        
+        if (!agencyId) {
+            window.location.href = 'agencies.html';
+        }
+        
+        async function loadAgency() {
+            try {
+                const response = await fetch('api/agencies.php');
+                const agencies = await response.json();
+                const agency = agencies.find(a => a.id == agencyId);
+                
+                if (agency) {
+                    document.getElementById('agencyName').textContent = agency.name;
+                    document.getElementById('viewName').textContent = agency.name || '-';
+                    document.getElementById('viewEmail').textContent = agency.email || '-';
+                    document.getElementById('viewPhone').textContent = agency.phone ? formatPhone(agency.phone) : '-';
+                    document.getElementById('viewContactPerson').textContent = agency.contact_person || '-';
+                    document.getElementById('viewContactPhone').textContent = agency.contact_phone ? formatPhone(agency.contact_phone) : '-';
+                    document.getElementById('viewStatus').innerHTML = agency.is_active ? 
+                        '<span class="badge badge-success">Активно</span>' : 
+                        '<span class="badge badge-secondary">Неактивно</span>';
+                    document.getElementById('viewCreatedAt').textContent = formatDate(agency.created_at);
+                }
+            } catch (error) {
+                showError('Ошибка загрузки данных');
+            }
+        }
+
+        async function loadRequisites() {
+            try {
+                const response = await fetch(`api/requisites.php?agency_id=${agencyId}`);
+                const requisites = await response.json();
+                
+                const current = requisites.find(r => !r.valid_to) || requisites[0];
+                
+                if (current) {
+                    document.getElementById('viewBank').textContent = current.bank_name || '-';
+                    document.getElementById('viewUnp').textContent = current.unp || '-';
+                    document.getElementById('viewOkpo').textContent = current.okpo || '-';
+                    document.getElementById('viewBic').textContent = current.bic || '-';
+                    document.getElementById('viewAccount').textContent = current.account_number || '-';
+                    document.getElementById('viewAddress').textContent = current.legal_address || '-';
+                    document.getElementById('viewDirector').textContent = current.director_name || '-';
+                    document.getElementById('viewValidFrom').textContent = formatDate(current.valid_from);
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки реквизитов');
+            }
+        }
+        
+        async function loadAgencyContracts() {
+            try {
+                const response = await fetch(`api/contracts.php?agency_id=${agencyId}`);
+                const contracts = await response.json();
+                
+                const tbody = document.getElementById('contractsList');
+                
+                if (contracts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">Нет договоров</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = contracts.map(c => `
+                    <tr>
+                        <td><a href="contract-view.html?id=${c.id}">${escapeHtml(c.number) || 'Б/Н'}</a></td>
+                        <td>${c.signing_date || '-'}</td>
+                        <td>${c.expiration_date || 'Бессрочно'}</td>
+                        <td>${formatMoney(c.total_amount)}</td>
+                        <td><span class="badge ${getStatusClass(c.status)}">${getStatusText(c.status)}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="window.location.href='contract-view.html?id=${c.id}'">👁️</button>
+                        </td>
+                    </tr>
+                `).join('');
+                
+            } catch (error) {
+                document.getElementById('contractsList').innerHTML = '<tr><td colspan="6" class="text-center">Ошибка загрузки</td></tr>';
+            }
+        }
+        
+        function editAgency() {
+            window.location.href = `agencies-edit.html?id=${agencyId}`;
+        }
+        
+        function historyAgency() {
+            window.location.href = `agency-history.html?id=${agencyId}`;
+        }
+        
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+        
+        loadAgency();
+        loadRequisites();
+        loadAgencyContracts();
+    </script>
+</body>
+</html>

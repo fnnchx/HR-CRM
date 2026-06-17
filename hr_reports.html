@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчеты | HR специалист</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">HR CRM | Специалист по подбору</div>
+        <div class="nav-menu">
+            <a href="hr_dashboard.html">Главная</a>
+            <a href="hr_staff.html">Реестр персонала</a>
+            <a href="hr_requests.html">Заявки</a>
+            <a href="hr_protocols.html">Протоколы цен</a>
+            <a href="hr_reports.html" class="active">Отчеты</a>
+            <a href="profile.html">Профиль</a>
+            <a href="#" id="logoutBtn">Выход</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Отчеты по привлеченному персоналу</h1>
+
+        <!-- Отчет по привлеченному персоналу -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📊 Отчет по количеству привлеченного персонала</h2>
+            </div>
+            
+            <div class="filters">
+                <div class="form-group">
+                    <label>Период с</label>
+                    <input type="date" id="dateFrom" value="<?php echo date('Y-m-d', strtotime('-30 days')); ?>">
+                </div>
+                <div class="form-group">
+                    <label>Период по</label>
+                    <input type="date" id="dateTo" value="<?php echo date('Y-m-d'); ?>">
+                </div>
+                <div class="form-group">
+                    <label>Группировка</label>
+                    <select id="groupBy">
+                        <option value="day">По дням</option>
+                        <option value="week">По неделям</option>
+                        <option value="month">По месяцам</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Агентство</label>
+                    <select id="agencyFilter">
+                        <option value="">Все агентства</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Магазин</label>
+                    <select id="organizationFilter">
+                        <option value="">Все магазины</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="loadStaffCountReport()">📊 Сформировать</button>
+                <button class="btn btn-success" onclick="exportReportCSV()">📥 Экспорт CSV</button>
+            </div>
+            
+            <div id="staffCountReport">
+                <p class="text-center">Выберите период и нажмите "Сформировать"</p>
+            </div>
+        </div>
+
+        <!-- Отчет по выходу/невыходу -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📋 Отчет о выходе/невыходе персонала</h2>
+            </div>
+            
+            <div class="filters">
+                <div class="form-group">
+                    <label>Период с</label>
+                    <input type="date" id="attDateFrom" value="<?php echo date('Y-m-d', strtotime('-30 days')); ?>">
+                </div>
+                <div class="form-group">
+                    <label>Период по</label>
+                    <input type="date" id="attDateTo" value="<?php echo date('Y-m-d'); ?>">
+                </div>
+                <div class="form-group">
+                    <label>Агентство</label>
+                    <select id="attAgencyFilter">
+                        <option value="">Все агентства</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Магазин</label>
+                    <select id="attOrganizationFilter">
+                        <option value="">Все магазины</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="loadAttendanceReport()">📋 Сформировать</button>
+                <button class="btn btn-success" onclick="exportAttendanceCSV()">📥 Экспорт CSV</button>
+            </div>
+            
+            <div id="attendanceReport">
+                <p class="text-center">Выберите период и нажмите "Сформировать"</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || (user.role !== 'hr_specialist' && user.role !== 'admin')) {
+            window.location.href = 'login.html';
+        }
+
+        let currentStaffData = [];
+        let currentAttendanceData = [];
+
+        // Загрузка фильтров
+        async function loadFilters() {
+            const agenciesRes = await fetch('api/agencies.php?active=1');
+            const agencies = await agenciesRes.json();
+            const orgRes = await fetch('api/organizations.php?active=1');
+            const orgs = await orgRes.json();
+            
+            const agencyFilter = document.getElementById('agencyFilter');
+            const attAgencyFilter = document.getElementById('attAgencyFilter');
+            const orgFilter = document.getElementById('organizationFilter');
+            const attOrgFilter = document.getElementById('attOrganizationFilter');
+            
+            agencyFilter.innerHTML = '<option value="">Все агентства</option>' + 
+                agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            attAgencyFilter.innerHTML = '<option value="">Все агентства</option>' + 
+                agencies.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+            orgFilter.innerHTML = '<option value="">Все магазины</option>' + 
+                orgs.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+            attOrgFilter.innerHTML = '<option value="">Все магазины</option>' + 
+                orgs.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+        }
+
+        // Отчет по привлеченному персоналу
+        async function loadStaffCountReport() {
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            const groupBy = document.getElementById('groupBy').value;
+            const agencyId = document.getElementById('agencyFilter').value;
+            const orgId = document.getElementById('organizationFilter').value;
+            
+            let url = `api/reports.php?type=staff_count_by_period&date_from=${dateFrom}&date_to=${dateTo}&group_by=${groupBy}`;
+            if (agencyId) url += `&agency_id=${agencyId}`;
+            if (orgId) url += `&organization_id=${orgId}`;
+            
+            const response = await fetch(url);
+            currentStaffData = await response.json();
+            displayStaffCountReport(currentStaffData, groupBy);
+        }
+
+        function displayStaffCountReport(data, groupBy) {
+            const container = document.getElementById('staffCountReport');
+            
+            if (data.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">Нет данных за выбранный период</p>';
+                return;
+            }
+            
+            let totalStaff = 0;
+            let totalShifts = 0;
+            let totalConfirmed = 0;
+            
+            let headers = [];
+            if (groupBy === 'day') headers = ['Дата', 'Уникальных сотрудников', 'Всего смен', 'Подтверждено'];
+            else if (groupBy === 'week') headers = ['Неделя', 'Уникальных сотрудников', 'Всего смен', 'Подтверждено'];
+            else headers = ['Месяц', 'Уникальных сотрудников', 'Всего смен', 'Подтверждено'];
+            
+            let html = `<div style="overflow-x: auto;"><table class="table"><thead><tr>`;
+            headers.forEach(h => { html += `<th>${h}</th>`; });
+            html += `</tr></thead><tbody>`;
+            
+            data.forEach(item => {
+                let label = '';
+                if (groupBy === 'day') label = item.date;
+                else if (groupBy === 'week') label = item.week;
+                else label = item.month_name || item.month;
+                
+                const uniqueStaff = item.unique_staff_count || 0;
+                const totalShiftsItem = item.total_shifts || 0;
+                const confirmed = item.confirmed_shifts || 0;
+                
+                totalStaff += uniqueStaff;
+                totalShifts += totalShiftsItem;
+                totalConfirmed += confirmed;
+                
+                html += `<tr>
+                    <td><strong>${label}</strong></td>
+                    <td>${uniqueStaff} чел.</td>
+                    <td>${totalShiftsItem}</td>
+                    <td><span class="badge badge-success">${confirmed}</span></td>
+                </tr>`;
+            });
+            
+            html += `<tr class="total-row">
+                <td><strong>ИТОГО:</strong></td>
+                <td><strong>${totalStaff} чел.</strong></td>
+                <td><strong>${totalShifts}</strong></td>
+                <td><strong>${totalConfirmed}</strong></td>
+            </tr>`;
+            
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
+        }
+
+        // Отчет по выходу/невыходу
+        async function loadAttendanceReport() {
+            const dateFrom = document.getElementById('attDateFrom').value;
+            const dateTo = document.getElementById('attDateTo').value;
+            const agencyId = document.getElementById('attAgencyFilter').value;
+            const orgId = document.getElementById('attOrganizationFilter').value;
+            
+            let url = `api/reports.php?type=attendance&date_from=${dateFrom}&date_to=${dateTo}`;
+            if (agencyId) url += `&agency_id=${agencyId}`;
+            if (orgId) url += `&organization_id=${orgId}`;
+            
+            const response = await fetch(url);
+            currentAttendanceData = await response.json();
+            displayAttendanceReport(currentAttendanceData);
+        }
+
+        function displayAttendanceReport(data) {
+            const container = document.getElementById('attendanceReport');
+            
+            if (data.length === 0) {
+                container.innerHTML = '<p class="alert alert-info">Нет данных за выбранный период</p>';
+                return;
+            }
+            
+            let total = 0, present = 0, absent = 0;
+            
+            let html = `<div style="overflow-x: auto;"><table class="table"><thead><tr>
+                <th>Дата</th><th>Сотрудник</th><th>Должность</th><th>Агентство</th><th>План</th><th>Факт прихода</th><th>Факт ухода</th><th>Статус</th>
+            </tr></thead><tbody>`;
+            
+            data.forEach(r => {
+                total++;
+                if (r.status === 'confirmed') present++;
+                if (r.status === 'absent') absent++;
+                
+                html += `<tr>
+                    <td>${r.schedule_date}</td>
+                    <td>${escapeHtml(r.full_name)}</td>
+                    <td>${escapeHtml(r.position) || '-'}</td>
+                    <td>${escapeHtml(r.agency_name) || '-'}</td>
+                    <td>${r.planned_start || '-'} - ${r.planned_end || '-'}</td>
+                    <td>${r.actual_start || '-'}</td>
+                    <td>${r.actual_end || '-'}</td>
+                    <td><span class="badge ${r.status === 'confirmed' ? 'badge-success' : (r.status === 'absent' ? 'badge-danger' : 'badge-warning')}">
+                        ${r.status === 'confirmed' ? 'Присутствовал' : (r.status === 'absent' ? 'Отсутствовал' : 'Не отмечен')}
+                    </span></td>
+                </tr>`;
+            });
+            
+            html += `<tr class="total-row"><td colspan="7"><strong>Итого:</strong></td>
+                <td><strong>Присутствовали: ${present}, Отсутствовали: ${absent}</strong></td>
+            </tr>`;
+            
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
+        }
+
+        function exportReportCSV() {
+            if (currentStaffData.length === 0) {
+                showError('Нет данных для экспорта');
+                return;
+            }
+            
+            let csv = "Период;Уникальных сотрудников;Всего смен;Подтверждено\n";
+            currentStaffData.forEach(item => {
+                const label = item.date || item.week || item.month || '-';
+                csv += `${label};${item.unique_staff_count || 0};${item.total_shifts || 0};${item.confirmed_shifts || 0}\n`;
+            });
+            
+            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `staff_count_report_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showSuccess('Экспорт выполнен');
+        }
+
+        function exportAttendanceCSV() {
+            if (currentAttendanceData.length === 0) {
+                showError('Нет данных для экспорта');
+                return;
+            }
+            
+            let csv = "Дата;Сотрудник;Должность;Агентство;План прихода;План ухода;Факт прихода;Факт ухода;Статус\n";
+            currentAttendanceData.forEach(r => {
+                csv += `${r.schedule_date};${r.full_name};${r.position || ''};${r.agency_name || ''};${r.planned_start || ''};${r.planned_end || ''};${r.actual_start || ''};${r.actual_end || ''};${r.status}\n`;
+            });
+            
+            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `attendance_report_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showSuccess('Экспорт выполнен');
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
+        loadFilters();
+        
+        loadStaffCountReport();
+        loadAttendanceReport();
+    </script>
+</body>
+</html>
